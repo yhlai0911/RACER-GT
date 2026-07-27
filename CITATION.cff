@@ -1,4 +1,4 @@
-cff-version: 1.3.0
+cff-version: 1.2.0
 message: "If you use RACER-GT, please cite both the software release and the accompanying methodology manuscript."
 title: "RACER-GT: Randomized Acquisition, Calibration, Error Decomposition, and Reliability for Google Trends"
 abstract: >-
@@ -17,8 +17,8 @@ authors:
     email: "yhlai@mail.dyu.edu.tw"
     affiliation: "Department of Finance, Da-Yeh University"
   - name: "RACER-GT contributors"
-version: 1.2.0
-date-released: 2026-07-27
+version: 1.4.0
+date-released: 2026-07-28
 license: MIT
 repository-code: "https://github.com/yhlai0911/RACER-GT"
 url: "https://github.com/yhlai0911/RACER-GT"

@@ -1,5 +1,81 @@
 # Changelog
 
+## 1.4.0 - 2026-07-28
+
+The first test against real Google Trends data. Every number the project had
+published came from its own simulator, which draws from the model the estimator
+assumes. Running the calibration stage on real downloads showed the simulator is
+wrong about the one parameter this data can check, and that Trends does something
+the simulator cannot represent at all.
+
+### Added
+
+- `examples/ingest_trends_csv.py` converts the CSV exports the Trends download
+  button produces into the documented raw chunk schema. Chunk identifiers and
+  windows come from file names, because the export records neither, so the names
+  are validated against the dates actually present. Values exported as `<1` are
+  censoring markers rather than zeros and are converted explicitly and counted.
+- `examples/run_real_data_calibration.py` and the analysis behind the new
+  manuscript section: cycle closure over every triangle, within-overlap drift
+  tests, per-chunk residual mis-scaling, a chain-accumulation power calculation,
+  and a parametric bootstrap that recovers `chunk_noise_sd` by reproducing the
+  Trends normalization rule.
+- `n_zero_dispersion_edges`, `n_informative_edges` and `n_scale_groups` in
+  `CalibrationResult.diagnostics`. Trends divides each chunk by its own window
+  maximum, so two windows containing the same peak day come back identical
+  wherever they overlap; such an edge carries no scale information yet still
+  enters the fit at whatever weight `edge_variance_floor` and `max_edge_weight`
+  allow. These keys report the situation and change no estimate. `decision.py`
+  reads none of them, so acceptance semantics are unchanged.
+- `tests/test_zero_dispersion_overlap.py`, including the mirror case where every
+  window has a distinct maximum, so the diagnostic cannot be trivially always-on.
+
+### Changed
+
+- Both manuscripts gain a real-data subsection after the calibration comparison,
+  and a limitation stating plainly that real-data validation covers the
+  calibration stage only. The data is a single pull; consensus weighting,
+  duplicate diagnosis, generalizability components and benchmarking are
+  untested on real data and rest on simulation alone.
+- Both READMEs and `docs/index.html` add a real-data row to the method comparison
+  table and record what it did and did not establish.
+
+### Fixed
+
+- `CITATION.cff` had `cff-version: 1.3.0`, which is the project version rather
+  than a Citation File Format schema version and is not a value the format
+  defines, while the `version` field had been left at 1.2.0 through the 1.3.0
+  release. Both are corrected.
+
+### Results
+
+- **The simulator overstates chunk noise by about 4.5 times.**
+  `SimulationSettings.chunk_noise_sd = 0.03` reproduces an overlap dispersion of
+  0.0464 against the 0.0188 observed, a ratio of 2.47. The matched value is
+  0.0066, and integer rounding alone accounts for 94% of the real dispersion. The
+  closed-form rounding floor returns zero, but it assumes the two chunks round
+  independently when they round the same numbers differing only by a scale
+  factor; that bias runs towards the flattering answer, so it is not used.
+- **Five of 26 real overlaps carried no information**, leaving four normalization
+  groups among eight chunks, because C0001--C0003 all peak on 2024-03-05,
+  C0004--C0005 on 2024-08-05, and C0007--C0008 on 2024-12-05. Zero of 520
+  simulated edges are degenerate. The rate depends on a series' peak structure
+  and is not extrapolated from one keyword.
+- **The proportionality model survives.** Across 45 triangles the median cycle
+  closure error is 0.0018 log points and the largest is 0.0118. One of 21
+  informative overlaps drifts at p < 0.05 against 1.05 expected. No chunk is left
+  detectably mis-scaled; the largest deviation is −0.032%.
+- **This design has no power against failure mode F1, which is computed rather
+  than asserted.** Only 3 of 7 joins are informative, so the terminal accumulated
+  standard deviation is 0.270%. Reaching 1% would need about 24 informative
+  joins, 5% about 574, and 10% about 2,189. The mechanism is real; at realistic
+  noise levels its accumulation is immaterial in any feasible design. This
+  strengthens the 1.3.0 comparison rather than undermining it: that comparison
+  ran with calibration noise several times too large and still found no
+  detectable advantage.
+- On real data the two methods are indistinguishable: correlation 1.000000 and a
+  largest absolute difference of 0.195 points on the 0--100 index scale.
+
 ## 1.3.0 - 2026-07-27
 
 Answers the question the project had never asked: is this better than the
