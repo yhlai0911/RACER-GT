@@ -158,6 +158,32 @@ value stands: the spectral effective pull count fell 4.93 &rarr; 2.95, correctly
 that nine pulls had become worth about three.
 </div>
 
+<h2>How does this compare with other methods?</h2>
+<p>Honestly: against a single download, decisively better; against any serious alternative,
+no evidence of an advantage.</p>
+<table>
+<thead><tr><th>Compared against</th><th>Result</th></tr></thead>
+<tbody>
+<tr><td>Downloading once</td><td><strong>49.1% lower RMSE</strong>, 20/20 replications</td></tr>
+<tr><td>Cross-pull median</td><td><strong>10.3% lower</strong>, 20/20</td></tr>
+<tr><td>Simple cross-pull mean</td><td>No detectable difference (p = 0.15)</td></tr>
+<tr><td>Sequential stitching (knitting)</td><td>Mechanism confirmed, accuracy difference not significant (p = 0.098 at best)</td></tr>
+<tr><td>West (2020) anchor bank</td><td>Not compared &mdash; needs multiple queries</td></tr>
+<tr><td>Djorno et al. (2026) preprocessing</td><td>Not compared &mdash; evaluated on downstream forecasts</td></tr>
+</tbody>
+</table>
+<div class="note">
+Three mechanisms have been tested directly and all three give the same answer. Covariance-adjusted
+weighting correctly down-weights dependent pulls (weights correlate &minus;0.562 with shared residual
+dependence) without improving RMSE. Global graph calibration genuinely stops error accumulating along
+the chain of joins (growth ratio 1.12 against 4.75) without improving RMSE. The prediction that
+heterogeneous dependence would change the first result was tested and failed.
+<br><br>
+Each mechanism works as designed; the effect on point accuracy is second order and swamped by
+retrieval noise. <strong>The value of this framework is that it produces a series whose quality can be
+judged, not a more accurate series.</strong> If all you need is a point estimate, take the mean of your pulls.
+</div>
+
 <h2>What this does not claim</h2>
 <ul>
 <li>It does not identify absolute Google search counts.</li>

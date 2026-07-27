@@ -22,7 +22,7 @@ Google Trends（GT）已廣泛用作投資人注意力、資訊需求與情緒�
 
 本文提出 \RACER（Randomized Acquisition, Calibration, Error Decomposition, and Reliability for Google Trends），其核心不是宣稱能恢復 Google 的絕對搜尋次數，而是先明確定義兩個可識別的統計目標：固定查詢與取得設計下的 GT 期望回傳值，以及共同尺度下的潛在相對搜尋訊號。方法依序結合：（一）可預先註冊的平衡重複取得實驗與 protocol hash；（二）使用所有重疊區間的全域圖形加權最小平方法，以避免 sequential stitching 的誤差累積；（三）完整保留 exact duplicates，並以去除共同訊號後的殘差建立 near-duplicate dependence graph；（四）將 historical date、collection day、collection stream 與 technical replicate 視為交叉 facets 的 Generalizability Theory；（五）以誤差共變異數調整的 GLS／穩定化最小變異凸組合重建日頻共識；（六）以週頻與月頻資料進行二次規劃式 temporal benchmarking；（七）分離 detection、level 與 daily-innovation reliability；以及（八）將日頻 GT 的測量不確定性傳遞至下游 reliability-corrected OLS 與 SIMEX。
 
-本文給出識別條件、無偏性與最小變異性之條件式證明、完整 decision tree，以及 Python 套件實作。20 次受控 Monte Carlo 在對齊資訊集後給出混合結果：跨 pull 聚合使平均 RMSE 由單一 pull 的 7.3519 降至 3.7421（降低 49.1\%，20 次重複全部改善），相對跨 pull 中位數的 4.1710 亦降低 10.3\%；temporal benchmarking 在估計量固定時另貢獻約 0.22 的 RMSE 降低（$p\approx3\times10^{-12}$）。但共變異數調整加權相對簡單平均（3.7253）並無可偵測的優勢（$-0.0167$，$p=0.152$）。對此最自然的解釋是依賴結構過於同質，因而 GLS 無可利用之處；本文進一步以四情境實驗直接檢驗該解釋，讓一部分 pull 額外共享一條跨設計因子的 cache 噪音，結果\textbf{不支持}它：GLS 在任一異質情境下均未顯著勝出，其中兩個情境顯著較差。診斷顯示約束並非原因（無約束解逐位相同），且機制運作正確（權重與殘差相關之相關係數 $-0.562$），剩下的解釋是以 9 個 pull 估計 $\Sigma$ 所引入的誤差超過其效率增益。理論結果不受影響（$\Sigma$ 已知時 GLS 仍為 BLUE），受影響的是實務建議。這些結果不構成對所有關鍵字、地區與 GT 版本的普遍最優保證。
+本文給出識別條件、無偏性與最小變異性之條件式證明、完整 decision tree，以及 Python 套件實作。20 次受控 Monte Carlo 在對齊資訊集後給出混合結果：跨 pull 聚合使平均 RMSE 由單一 pull 的 7.3519 降至 3.7421（降低 49.1\%，20 次重複全部改善），相對跨 pull 中位數的 4.1710 亦降低 10.3\%；temporal benchmarking 在估計量固定時另貢獻約 0.22 的 RMSE 降低（$p\approx3\times10^{-12}$）。但共變異數調整加權相對簡單平均（3.7253）並無可偵測的優勢（$-0.0167$，$p=0.152$）。對此最自然的解釋是依賴結構過於同質，因而 GLS 無可利用之處；本文進一步以四情境實驗直接檢驗該解釋，讓一部分 pull 額外共享一條跨設計因子的 cache 噪音，結果\textbf{不支持}它：GLS 在任一異質情境下均未顯著勝出，其中兩個情境顯著較差。診斷顯示約束並非原因（無約束解逐位相同），且機制運作正確（權重與殘差相關之相關係數 $-0.562$），剩下的解釋是以 9 個 pull 估計 $\Sigma$ 所引入的誤差超過其效率增益。理論結果不受影響（$\Sigma$ 已知時 GLS 仍為 BLUE），受影響的是實務建議。校準階段亦得到同型結果：全域 overlap-graph 相對逐段 stitching 確實阻止了誤差沿接合鏈累積（成長比 $1.12$ 對 $4.75$），但重建誤差差異在最有利設定下仍為 $p=0.098$。本文由此得到一個貫穿性的結論——各機制均按設計運作且可被量測證實，但其效果在點估計精度上是二階的；本框架的價值在於產生\textbf{可被判斷}的數列，而非更準的數列。這些結果不構成對所有關鍵字、地區與 GT 版本的普遍最優保證。
 
 \noindent\textbf{關鍵詞：}Google Trends；投資人注意力；測量誤差；實驗設計；Generalizability Theory；圖形校準；GLS；temporal benchmarking；SIMEX
 \end{abstract}
@@ -228,6 +228,15 @@ D\times S\times R,
 \end{equation}
 其中 $D$ 為 collection-day levels、$S$ 為 collection streams、$R$ 為每個 day $\times$ stream cell 內的 technical replicates。本文建議的起始設計為 Day 0、1、2、7、14、21、30，三個固定 streams；若資源允許，$R=2$ 可將 pure technical error 與最高階交互作用分離。若僅 $R=1$，仍可估計 day 與 stream facets，但 $TDS$ 與純 replication error 無法分離。
 
+\begin{remark}[為何 collection day 是承重的 facet]
+\label{rem:cache}
+本設計把 collection day 視為獨立 facet，理由是平台似乎以「日」為週期重新抽樣，而非每次請求重抽。Djorno et al.（2026）報告重複的相同請求會在 24 小時內由 cache 提供，並於 UTC 午夜 cache 重置時抽取新樣本。
+
+由此有兩個推論。第一，同一日內的重複取得無法買到關於抽樣誤差的獨立資訊，因此證據累積的有效速率上限是每日一筆新抽樣；任何以重複 pulls 平均來降低抽樣變異的程序——包括 Eichenauer et al.（2022）所建議者——都是以日曆時間換取精度，這正是它在即時應用上尷尬之處。
+
+第二，此機制給出一個可用以檢驗本框架的預測：若日 cache 嚴格成立，\cref{eq:gtheorymodel}中的 technical-replicate 變異成分應與零無法區分，而第 6.1 節保留的 exact duplicates 就不是待清除的雜訊，而是 cache 的直接可觀察證據。反之，若該成分明顯大於零，則日 cache 的描述對所處理的 query 而言並不完整。此處陳述該預測是因為它的檢驗成本很低，且兩種結果都有資訊價值；本文不假設它成立，亦無任何結果依賴它。
+\end{remark}
+
 Collection stream 應被定義為固定的複合環境：裝置、瀏覽器 profile、cookie、登入狀態、client 版本、網路與 IP 等條件在 stream 內保持不變。除非另行採用 crossover factorial design，估計出的 $S$ effect 只能稱為 composite stream effect，不能拆解為 IP effect。
 
 為避免 stream 與 request order 或 time slot 完全混淆，RACER-GT 以 cyclic／Latin-square-like rotation 平衡每一天的 stream order；chunk order 亦可輪替。若三個 streams 無法同時啟動，這種平衡至少能使系統狀態隨時間的變化不固定落在同一個 stream。
@@ -360,7 +369,40 @@ c|u|-\frac{1}{2}c^2, & |u|>c.
 \end{equation}
 亦可使用 median 或 Huber aggregation。最後依\cref{eq:baselineidentification} 將每個 complete pull 的基準期平均設為 100。這一步明確定義相對 index，而非宣稱恢復絕對量。
 
-逐段 stitching 只使用相鄰 chunks，前段 edge error 會遞迴傳遞至後續所有尺度；全域圖法同時使用遠近所有重疊 edges，能以 graph cycles 觀察不一致，並輸出 normal-matrix condition number、weighted edge RMSE 與 component diagnostics。
+逐段 stitching 只使用相鄰 chunks，前段 edge error 會遞迴傳遞至後續所有尺度；全域圖法同時使用所有可估計的重疊關係，能以 graph cycles 觀察不一致，並輸出 normal-matrix condition number、weighted edge RMSE 與 component diagnostics。
+
+\subsection{與逐段 stitching 的直接比較}
+\label{sec:calexp}
+
+上述論證過去只有理論陳述，未經量測。\texttt{examples/run\_calibration\_comparison.py} 直接量測它：\texttt{src/racergt/baselines.py} 實作了逐段 stitching（Bleher and Dimpfl 式的 knitting），使用\emph{完全相同}的 Huber edge 估計器、相同的 $c_{\min}$ 門檻與相同的基準期正規化，唯一差異是走一條 spanning path 而非解整張圖。因此任何精度差距都只能歸因於這個選擇。
+
+\begin{table}[H]
+\centering
+\small
+\caption{全域圖校準對逐段 stitching，每格 20 seeds $\times$ 2 pulls。優勢欄為 sequential 減 graph 的 RMSE，正值表示全域圖較優。}
+\label{tab:calexp}
+\begin{tabular}{lrrrrrrl}
+\toprule
+設計 & 接合數 & Graph & Sequential & 優勢 & MCSE & $p$ & Graph 勝場\\
+\midrule
+60 日 step & 5 & 7.4827 & 7.4677 & $-0.0150$ & 0.0053 & $0.008$ & 13/40\\
+30 日 step & 9 & 7.3026 & 7.2967 & $-0.0059$ & 0.0049 & $0.234$ & 15/40\\
+15 日 step & 17 & 7.2085 & 7.2125 & $+0.0040$ & 0.0072 & $0.576$ & 15/40\\
+15 日 step，低噪音 & 17 & 1.9245 & 1.9356 & $+0.0111$ & 0.0066 & $0.098$ & 21/40\\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\textbf{機制成立，效果是二階的。}F1 所描述的累積現象確實存在且量級明確：在 15 日 step 設計下，逐段 stitching 所回復的 log scale，其跨重複標準差由鏈前段的 $0.0259$ 增至鏈末段的 $0.1228$，成長 $4.75$ 倍；全域圖法的對應比值僅 $1.12$。誤差確實沿接合鏈累積，而全域求解確實阻止了它。
+
+但這並未轉化為可偵測的重建誤差優勢。趨勢的方向與 F1 一致——接合數由 5 增至 17 時，優勢由 $-0.0150$ 轉為 $+0.0040$；將 retrieval noise 由 $0.06$ 降至 $0.01$、使校準誤差在總誤差中佔更大比重時，優勢再升至 $+0.0111$——但即使在這個為 F1 量身打造的最有利設定下，$p=0.098$、勝場 21/40，仍未達顯著。在接合數最少的設計下，全域圖法反而顯著較差（$p=0.008$），原因是其參考 chunk 由 highest-degree 規則選出而非固定為第一個 chunk，且它額外施加了\cref{eq:lognormalcorrection}的對數常態修正。
+
+\begin{remark}[三個機制，同一個結論]
+\label{rem:pattern}
+這是本文第三次得到同型結果。共變異數調整加權能正確辨識並降權相依 pulls（權重與殘差相關之相關係數 $-0.562$），但不改善 RMSE；依賴異質性的預測被直接檢驗後失敗；全域圖校準確實阻止了誤差沿鏈累積（$1.12$ 對 $4.75$），同樣不改善 RMSE。
+
+三者的共同結構是：機制按設計運作，且可被量測證實，但其效果在\emph{點估計精度}上是二階的，被 retrieval noise 掩蓋。對使用者而言，這個結論比任何單一數字都重要——它指出本框架的價值不在於產生更準的數列，而在於產生\emph{可被判斷}的數列。有效 pull 數、依賴結構、cycle 不一致統計量、每日條件標準誤與可傳遞的測量不確定性，都是 RMSE 無法表達也無法取代的資訊。
+\end{remark}
 
 \section{第二階段：跨 pull 相依性、duplicates 與量測可靠度}
 
@@ -989,7 +1031,9 @@ Downstream model & 主結果使用 final consensus；另以 sample-specific pull
 
 \subsection{與既有方法的關係}
 
-RACER-GT 並非取代既有研究，而是把其可互補部分放入同一個測量框架。Eichenauer et al.（2022）提供 repeated draws 與 frequency consistency 的核心洞見；Bleher and Dimpfl（2022）說明高頻長期 knitting；West（2020）以 anchor bank 處理跨 query common scale 與 rounding；Cebrián and Domenech（2024）指出 repeated pulls 的誤差與熱門程度密切相關；Medeiros and Pires（2021）提醒單一 GT realization 可使 forecasting conclusion 偶然改變。RACER-GT 的新增層次在於：將 retrieval 本身明確設計為交叉測量實驗，以 graph GLS 解 within-pull scale，以 G-theory 決定蒐集資源，以 residual covariance 對相依 pulls 降權，再把 measurement uncertainty 傳至下游財金估計。
+RACER-GT 並非取代既有研究，而是把其可互補部分放入同一個測量框架。就實證比較而言，本文只直接比較了逐段 stitching（\cref{sec:calexp}），結果是機制成立但精度差異不顯著；West（2020）的 anchor bank 需要多組 query 才能運作，Djorno et al.（2026）的 preprocessing 以下游預測準確度為評估標準，兩者都無法在本文的單一 series、以 latent truth 為基準的模擬下直接比較。因此本文\textbf{不宣稱}相對這些方法具有精度優勢；已建立的是相對「只下載一次」的大幅改善，以及一組其他方法未提供的診斷輸出。
+
+Eichenauer et al.（2022）提供 repeated draws 與 frequency consistency 的核心洞見；Bleher and Dimpfl（2022）說明高頻長期 knitting；West（2020）以 anchor bank 處理跨 query common scale 與 rounding；Cebrián and Domenech（2024）指出 repeated pulls 的誤差與熱門程度密切相關；Medeiros and Pires（2021）提醒單一 GT realization 可使 forecasting conclusion 偶然改變。RACER-GT 的新增層次在於：將 retrieval 本身明確設計為交叉測量實驗，以 graph GLS 解 within-pull scale，以 G-theory 決定蒐集資源，以 residual covariance 對相依 pulls 降權，再把 measurement uncertainty 傳至下游財金估計。
 
 \section{結論}
 

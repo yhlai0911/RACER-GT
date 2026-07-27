@@ -142,6 +142,36 @@ reporting that nine pulls had become worth about three. This is one data-generat
 `examples/run_monte_carlo.py` reproduces it and `scripts/make_figures.py`
 redraws the figures from the same CSVs.
 
+## How does this compare with other construction methods?
+
+Honestly: **against a single download, decisively better; against any serious
+alternative, no evidence of an advantage.**
+
+| Compared against | Result |
+|---|---|
+| Downloading once | **49.1% lower RMSE**, 20/20 replications |
+| Cross-pull median | **10.3% lower**, 20/20 |
+| Simple cross-pull mean | No detectable difference (p = 0.15) |
+| Sequential stitching (knitting) | Mechanism confirmed, accuracy difference not significant (p = 0.098 at best) |
+| West (2020) anchor bank | Not compared — needs multiple queries |
+| Djorno et al. (2026) preprocessing | Not compared — evaluated on downstream forecasts |
+
+Three of RACER-GT's mechanisms have now been tested directly, and all three give
+the same answer. Covariance-adjusted weighting correctly down-weights dependent
+pulls (weights correlate −0.562 with shared residual dependence) without
+improving RMSE. Global graph calibration genuinely stops error accumulating along
+the chain of joins (growth ratio 1.12 against 4.75 for sequential stitching)
+without improving RMSE. And the prediction that heterogeneous dependence would
+change the first result was tested and failed.
+
+Each mechanism works as designed and can be shown to work; the effect on point
+accuracy is second order and swamped by retrieval noise. **The value of this
+framework is that it produces a series whose quality can be judged, not a more
+accurate series.** Effective pull counts, dependence structure, cycle-consistency
+statistics, per-day standard errors, and uncertainty that propagates into a
+downstream regression are things a simple mean cannot supply and RMSE cannot
+express. If all you need is a point estimate, take the mean of your pulls.
+
 ## What this does not claim
 
 - It does not identify absolute Google search counts.
