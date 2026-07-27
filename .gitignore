@@ -34,6 +34,11 @@ docs/latex/*.fdb_latexmk
 docs/latex/*.synctex.gz
 docs/latex/*.lof
 docs/latex/*.lot
+# Compiling inside docs/latex (rather than via scripts/build_docs.py) drops the
+# PDF next to its source. The published PDFs live in docs/pdf; the figures are
+# inputs and stay tracked.
+docs/latex/*.pdf
+!docs/latex/figures/*.pdf
 
 # 同儕審查報告及其全部延伸產物（來源 .tex、編譯出的 PDF 與 LaTeX 中間檔）。
 # 這是對本專案的外部審查意見，不屬於 RACER-GT 的發布內容，一律不進版控。
