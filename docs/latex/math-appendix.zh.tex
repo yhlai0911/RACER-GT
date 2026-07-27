@@ -66,13 +66,19 @@ $w_i=\psi_c(u_i)/u_i$、$u_i=(r_i-\mu)/\hat{\sigma}$，更新式為
 
 \subsection{Edge 估計的變異數}
 
-M-estimator 的漸近變異數為
+M-estimator 的教科書漸近變異數為
 \begin{equation}
 \Var(\hat{\mu}) \;\approx\;
 \frac{\hat{\sigma}^2}{n}\cdot
 \frac{\E[\psi_c(u)^2]}{\big(\E[\psi_c'(u)]\big)^2}.
 \end{equation}
-此變異數成為圖問題中的 edge 精度 $1/\hat{v}_{jk}$。有兩個實作細節：
+實作採用其有限樣本的加權版本：以最終 Huber 權重 $w_i=\psi_c(u_i)/u_i$ 定義有效樣本數，
+\begin{equation}
+n_{\text{eff}}=\frac{\left(\sum_i w_i\right)^2}{\sum_i w_i^2},
+\qquad
+\hat{v}_{jk}=\frac{\hat{\sigma}^2_{\text{robust}}}{\max(n_{\text{eff}},1)},
+\end{equation}
+即 Kish 式的權重集中度修正。兩式在常態且 $c=1.345$ 下數值接近（效率因子約 1.04），但它們不是同一個估計量：前者是漸近結果，後者對「少數觀察值實質主導該 edge」的情形反應更直接。此處明確標示 \texttt{overlap.py} 的 \texttt{huber\_location} 採用的是後者。此變異數成為圖問題中的 edge 精度 $1/\hat{v}_{jk}$。有兩個實作細節：
 \begin{enumerate}
 \item 設下界 $\hat{v}\leftarrow\max(\hat{v},v_{\text{floor}})$，否則估計變異數趨近零的 edge 會完全主導 normal equations；
 \item 對權重設上界 $1/\hat{v}\le w_{\max}$，理由相同但方向相反。
@@ -116,10 +122,19 @@ $\bm{x}^\top L\bm{x}=\sum_{e=(j,k)}\hat{v}_e^{-1}(\tilde{x}_j-\tilde{x}_k)^2\ge 
 
 \subsection{對數常態偏誤修正}
 
-若 $Y_{jt}=a_jX_t\exp(\epsilon_{jt})$ 中 $\epsilon_{jt}\sim\mathcal{N}(0,\sigma_j^2)$，則 $\E[Y_{jt}]=a_jX_t\exp(\sigma_j^2/2)$。僅以 $\exp(-\hat{\ell}_j)$ 還原時，目標是中位數而非平均數。選用的修正再乘上 $\exp(-\hat{\sigma}_j^2/2)$。
+被修正的是\textbf{估計量的} Jensen 偏誤，不是資料生成過程中乘法誤差的中位數與平均數之差。設 $\hat{\ell}_j$ 近似常態且 $s_j^2=\Var(\hat{\ell}_j)$，則
+\begin{equation}
+\E\!\left[\exp(-\hat{\ell}_j)\right]
+=\exp(-\ell_j)\exp\!\left(\tfrac{1}{2}s_j^2\right),
+\end{equation}
+故直接以 $\exp(-\hat{\ell}_j)$ 還原會系統性高估 $a_j^{-1}$。一階修正為
+\begin{equation}
+\widehat{a_j^{-1}}_{\,bc}=\exp\!\left(-\hat{\ell}_j-\tfrac{1}{2}s_j^2\right),
+\end{equation}
+與主文式 (13) 相同。實作取的 $s_j^2$ 是 graph WLS 的 $\diag(L^{-1})$ 對角元，即 \texttt{overlap.py} 中的 \texttt{log\_scale\_variance}。
 
 \begin{remark}[差異之二]
-此修正僅在對數常態假設下精確。預設開啟是因為乘法模型本身即指向它；設為可調參數，正是因為在此樣本規模下常態性無法檢定。
+此修正僅在 $\hat{\ell}_j$ 近似常態下精確，且其量級隨可用重疊日數增加而遞減至零——這一點與觀測誤差 $\epsilon_{jt}$ 本身的變異數不同，後者不隨樣本數縮小。兩者容易混淆，故此處明確標示實作用的是前者。預設開啟是因為乘法模型本身即指向它；設為可調參數，正是因為在此樣本規模下常態性無法檢定。
 \end{remark}
 
 % =============================================================================
@@ -147,7 +162,8 @@ $D$、$S$、$TS$、$DS$ 有對應方程。由最高階項往下逐一回代即�
 \begin{equation}
 E\rho^2=\frac{\sigma^2_T}
 {\sigma^2_T+\dfrac{\sigma^2_{TD}}{n_d}+\dfrac{\sigma^2_{TS}}{n_s}
-+\dfrac{\sigma^2_{TDS}+\sigma^2_E}{n_dn_s n_r}} .
++\dfrac{\sigma^2_{TDS}}{n_dn_s}+\dfrac{\sigma^2_E}{n_dn_s n_r}} .
+\label{eq:erho-zh}
 \end{equation}
 絕對決策的 dependability 係數 $\Phi$ 另計入 $D$ 與 $S$ 的主效應，因為當分數被單獨解讀（而非與其他日期相比）時，整體平移是有影響的：
 \begin{equation}
@@ -155,8 +171,13 @@ E\rho^2=\frac{\sigma^2_T}
 {\sigma^2_T+\dfrac{\sigma^2_D}{n_d}+\dfrac{\sigma^2_S}{n_s}
 +\dfrac{\sigma^2_{TD}}{n_d}+\dfrac{\sigma^2_{TS}}{n_s}
 +\dfrac{\sigma^2_{DS}}{n_dn_s}
-+\dfrac{\sigma^2_{TDS}+\sigma^2_E}{n_dn_sn_r}} .
++\dfrac{\sigma^2_{TDS}}{n_dn_s}+\dfrac{\sigma^2_E}{n_dn_sn_r}} .
+\label{eq:phi-zh}
 \end{equation}
+
+\begin{remark}[$\sigma^2_{TDS}$ 與 $\sigma^2_E$ 的除數不同]
+$TDS$ 交互作用只在 day $\times$ stream 格上被平均，因此除以 $n_dn_s$；純 replication 誤差另外在格內被平均 $n_r$ 次，因此除以 $n_dn_sn_r$。把兩者併為單一項 $(\sigma^2_{TDS}+\sigma^2_E)/(n_dn_sn_r)$ 只在 $n_r=1$ 時成立，在 $n_r>1$ 時會低估相對誤差變異、從而高估 $G$。本文建議的正式設計採 $n_r=2$，正是差異存在的情形。\cref{eq:erho-zh} 與 \texttt{gstudy.py} 的 \texttt{generalizability\_coefficients} 逐項對應，並由 \texttt{tests/test\_gstudy.py} 的公式一致性測試持續驗證。
+\end{remark}
 D-study 在 $(n_d,n_s,n_r)$ 網格上評估兩者，把分解轉為可執行的設計建議：對 $n_d$ 與對 $n_s$ 的偏導數，直接回答下一單位投入該花在哪裡。
 
 % =============================================================================
@@ -206,7 +227,7 @@ $Q\succ 0$、$W\succeq 0$、$A$ 為日對期的聚合矩陣時，
 \begin{equation}
 \bm{x}^*=(Q+A^\top WA)^{-1}(Q\bm{z}+A^\top W\bm{b}).
 \end{equation}
-$Q$ 建構為 $\rho_1 I+\rho_2 D_2^\top D_2$，$D_2$ 為二階差分運算子；第一項懲罰偏離日頻 consensus，第二項懲罰修正路徑的粗糙度。因此 movement preservation 是施加在「修正量」而非「水準」上。
+$Q$ 建構為 $(\lambda_I+\lambda_R)I+\lambda_D D_1^\top D_1$，其中 $D_1$ 為\textbf{一階}差分運算子（\texttt{benchmark.py} 的 \texttt{\_difference\_penalty} 建構 shape $(n-1,n)$、offsets $[0,1]$ 的差分矩陣後回傳 $D_1^\top D_1$）。第一項懲罰偏離日頻 consensus，其中 $\lambda_R$ 是使 $Q$ 在 $\lambda_I=0$ 時仍正定的 ridge；第二項懲罰修正路徑的粗糙度。因此 movement preservation 是施加在「修正量」而非「水準」上。一階差分懲罰的是修正路徑的\textbf{斜率}；若改用二階差分則懲罰其曲率，屬於 benchmarking 文獻中另一族估計器，本實作並未採用。
 
 \subsection{Exact 模式}
 
