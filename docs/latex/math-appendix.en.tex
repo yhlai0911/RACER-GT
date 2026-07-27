@@ -1,0 +1,358 @@
+% RACER-GT mathematical appendix (English).
+\documentclass[12pt,a4paper,oneside]{article}
+\input{_preamble-en}
+\lhead{RACER-GT: Mathematical Appendix}
+
+\title{\bfseries RACER-GT Mathematical Appendix\\[0.4em]
+\large Derivations, Proofs, and Estimator Details}
+\author{\racerauthor\\\small \raceraffil}
+\date{\racerdate\ \textbullet\ version \racerversion}
+
+\begin{document}
+\maketitle
+
+\begin{abstract}
+\noindent This appendix collects the derivations that the methodology
+manuscript states without full working, and documents the exact estimator each
+software routine implements. It is written to be checkable: every result is
+tied to the module and function that computes it, so a reader can verify that
+the code and the mathematics agree. Where the implementation departs from the
+textbook estimator---and it does so in three places---the departure is stated
+and justified rather than left for the reader to discover.
+\end{abstract}
+
+\tableofcontents
+\newpage
+
+% =============================================================================
+\section{Notation}
+
+\begin{table}[H]
+\centering
+\small
+\caption{Symbols used throughout.}
+\begin{tabularx}{\textwidth}{llX}
+\toprule
+Symbol & Domain & Meaning\\
+\midrule
+$t$ & $1,\dots,T$ & historical calendar date\\
+$i$ & $1,\dots,N$ & complete pull (one full history reconstruction)\\
+$j,k$ & $1,\dots,J$ & chunk (a fixed query window)\\
+$d,s,r$ & --- & collection day, stream, technical replicate\\
+$Y_{jt}$ & $[0,100]$ & raw GT value, date $t$, chunk $j$\\
+$a_j,\ \ell_j$ & $\R_{>0},\R$ & chunk scale and its logarithm, $\ell_j=\log a_j$\\
+$X_t$ & $\R_{>0}$ & latent common-scale signal\\
+$Z_{it}$ & $\R$ & calibrated value of pull $i$ at date $t$\\
+$\Sig$ & $\R^{N\times N}$ & residual covariance across pulls\\
+$\wvec$ & $\Delta^{N-1}$ & consensus weights, $\one^\top\wvec=1$\\
+$c_{\min}$ & $\R_{>0}$ & minimum raw value admitted to an overlap edge\\
+$m_{\min}$ & $\mathbb{N}$ & minimum usable overlap days for an edge\\
+\bottomrule
+\end{tabularx}
+\end{table}
+
+% =============================================================================
+\section{Robust edge estimation}
+
+\subsection{The estimator}
+
+For an edge $(j,k)$, let $r_1,\dots,r_n$ be the log ratios
+$\log Y_{jt}-\log Y_{kt}$ over the usable overlap days. The Huber location
+estimate solves
+\begin{equation}
+\sum_{i=1}^{n}\psi_c\!\left(\frac{r_i-\hat{\mu}}{\hat{\sigma}}\right)=0,
+\qquad
+\psi_c(u)=\max\{-c,\min(c,u)\},
+\end{equation}
+by iteratively reweighted least squares. Writing
+$w_i=\psi_c(u_i)/u_i$ for $u_i=(r_i-\mu)/\hat{\sigma}$, the update is
+\begin{equation}
+\mu^{(m+1)}=\frac{\sum_i w_i^{(m)} r_i}{\sum_i w_i^{(m)}},
+\end{equation}
+which is a weighted mean that downweights observations beyond $c\hat\sigma$.
+The scale $\hat{\sigma}$ is the normalized median absolute deviation.
+
+\subsection{Variance of the edge estimate}
+
+The asymptotic variance of an M-estimator of location is
+\begin{equation}
+\Var(\hat{\mu}) \;\approx\;
+\frac{\hat{\sigma}^2}{n}\cdot
+\frac{\E[\psi_c(u)^2]}{\big(\E[\psi_c'(u)]\big)^2}.
+\label{eq:m-var}
+\end{equation}
+This variance becomes the edge precision $1/\hat{v}_{jk}$ in the graph problem.
+Two implementation details matter:
+\begin{enumerate}
+\item a floor is applied, $\hat{v}\leftarrow\max(\hat{v},v_{\text{floor}})$,
+because an edge with near-zero estimated variance would otherwise dominate the
+normal equations entirely;
+\item a ceiling is applied to the resulting weight, $1/\hat{v}\le w_{\max}$,
+for the same reason from the other direction.
+\end{enumerate}
+
+\begin{remark}[Departure 1 from the textbook estimator]
+The floor and ceiling are not part of the classical M-estimation theory. They
+are numerical guards. Their effect is to bound the influence any single edge can
+exert on the global solution, which matters because an edge computed from
+exactly $m_{\min}$ nearly identical days can produce a spuriously small
+variance.
+\end{remark}
+
+% =============================================================================
+\section{Graph weighted least squares}
+
+\subsection{Normal equations}
+
+With $B$ the reduced incidence matrix (reference column deleted),
+$\bm{r}$ the stacked edge estimates and $\Omega=\diag(\hat{v}_e)$,
+\begin{equation}
+(B^\top\Omega^{-1}B)\,\hat{\bm{\ell}}=B^\top\Omega^{-1}\bm{r}.
+\end{equation}
+The matrix $L=B^\top\Omega^{-1}B$ is the weighted graph Laplacian with the
+reference row and column removed, sometimes called the grounded Laplacian.
+
+\begin{proposition}[Positive definiteness]
+If $G$ is connected then the grounded Laplacian $L$ is positive definite.
+\end{proposition}
+
+\begin{proof}
+For any $\bm{x}\neq\bm{0}$ on the free nodes, extend it to $\tilde{\bm{x}}$ by
+setting the reference entry to zero. Then
+$\bm{x}^\top L\bm{x}=\sum_{e=(j,k)}\hat{v}_e^{-1}(\tilde{x}_j-\tilde{x}_k)^2\ge 0$,
+with equality only if $\tilde{\bm{x}}$ is constant on every connected component.
+Connectivity forces one component, and the reference entry pins that constant to
+zero, so $\tilde{\bm{x}}=\bm{0}$, contradicting $\bm{x}\neq\bm{0}$.
+\end{proof}
+
+\subsection{Diagnostics that follow from the residual}
+
+The fitted residual $\bm{\varepsilon}=\bm{r}-B\hat{\bm{\ell}}$ is exactly the
+cycle inconsistency of the edge measurements: for any cycle in $G$, the sum of
+edge estimates around it should be zero, and $\bm{\varepsilon}$ measures the
+failure. The implementation reports:
+\begin{itemize}
+\item connectivity and the number of components;
+\item the condition number of $L$, which flags a graph held together by a
+single weak edge;
+\item the weighted residual sum of squares as a cycle-consistency statistic;
+\item per-node standard errors from $\diag(L^{-1})$.
+\end{itemize}
+None of these quantities exists under sequential stitching, because sequential
+stitching uses a spanning path and therefore has no cycles to be inconsistent
+about.
+
+\subsection{Lognormal bias correction}
+
+If $\epsilon_{jt}\sim\mathcal{N}(0,\sigma_j^2)$ in
+$Y_{jt}=a_jX_t\exp(\epsilon_{jt})$, then
+$\E[Y_{jt}]=a_jX_t\exp(\sigma_j^2/2)$. Back-transforming with
+$\exp(-\hat{\ell}_j)$ alone therefore targets the median rather than the mean.
+The optional correction multiplies by $\exp(-\hat{\sigma}_j^2/2)$.
+
+\begin{remark}[Departure 2]
+This correction is exact only under lognormality. It is enabled by default
+because the multiplicative model motivates it, but it is a configuration flag
+precisely because the normality assumption is not testable at the sample sizes
+involved.
+\end{remark}
+
+% =============================================================================
+\section{Variance components}
+
+\subsection{Expected mean squares}
+
+For the fully crossed design of the manuscript with $n_t,n_d,n_s$ levels and
+$n_r$ replicates, the method-of-moments equations follow from the expected mean
+squares. Writing $\sigma^2_{\bullet}$ for the component of the indicated effect,
+\begin{align}
+\E[\mathrm{MS}_T] &= \sigma^2_E + n_r\sigma^2_{TDS} + n_rn_s\sigma^2_{TD}
++ n_rn_d\sigma^2_{TS} + n_rn_dn_s\sigma^2_T,\\
+\E[\mathrm{MS}_{TD}] &= \sigma^2_E + n_r\sigma^2_{TDS} + n_rn_s\sigma^2_{TD},\\
+\E[\mathrm{MS}_{TDS}] &= \sigma^2_E + n_r\sigma^2_{TDS},\\
+\E[\mathrm{MS}_E] &= \sigma^2_E,
+\end{align}
+with the analogous equations for $D$, $S$, $TS$ and $DS$. Solving downward from
+the highest-order term gives each component.
+
+\begin{remark}[Departure 3: negative components]
+Method-of-moments estimates can be negative, which is impossible for a variance.
+The implementation clips them at zero by default. Clipping is the standard
+practical choice but it introduces a small upward bias in the clipped component
+and a corresponding distortion in any ratio that uses it. The raw, unclipped
+values are retained in the output so that the reader can see how often clipping
+was necessary; frequent clipping is evidence that the design is too small for
+the decomposition being attempted.
+\end{remark}
+
+\subsection{Generalizability and dependability coefficients}
+
+For relative decisions (rank ordering across dates),
+\begin{equation}
+E\rho^2=\frac{\sigma^2_T}
+{\sigma^2_T+\dfrac{\sigma^2_{TD}}{n_d}+\dfrac{\sigma^2_{TS}}{n_s}
++\dfrac{\sigma^2_{TDS}+\sigma^2_E}{n_dn_s n_r}} .
+\end{equation}
+For absolute decisions the dependability coefficient $\Phi$ additionally charges
+the main effects of $D$ and $S$, because a uniform shift matters when the score
+is interpreted on its own rather than relative to other dates:
+\begin{equation}
+\Phi=\frac{\sigma^2_T}
+{\sigma^2_T+\dfrac{\sigma^2_D}{n_d}+\dfrac{\sigma^2_S}{n_s}
++\dfrac{\sigma^2_{TD}}{n_d}+\dfrac{\sigma^2_{TS}}{n_s}
++\dfrac{\sigma^2_{DS}}{n_dn_s}
++\dfrac{\sigma^2_{TDS}+\sigma^2_E}{n_dn_sn_r}} .
+\end{equation}
+The D-study evaluates both on a grid of $(n_d,n_s,n_r)$, which is what turns the
+decomposition into an actionable design recommendation: the partial derivative
+with respect to $n_d$ versus $n_s$ says where the next unit of effort buys more
+reliability.
+
+% =============================================================================
+\section{Consensus weights under constraints}
+
+The unconstrained solution $\wvec^*=\Sig^{-1}\one/(\one^\top\Sig^{-1}\one)$ is
+derived in the manuscript. The default configuration instead solves
+\begin{equation}
+\min_{\wvec}\ \wvec^\top\hat{\Sig}\wvec
+\quad\text{s.t.}\quad
+\one^\top\wvec=1,\quad
+0\le w_i\le\bar{w}.
+\label{eq:qp}
+\end{equation}
+
+\begin{proposition}[The constrained problem is well posed]
+If $\hat{\Sig}\succeq 0$ and $\bar{w}\ge 1/N$, the feasible set of
+\eqref{eq:qp} is non-empty, compact and convex, so a minimizer exists. If
+$\hat{\Sig}\succ 0$ it is unique.
+\end{proposition}
+
+\begin{proof}
+The equal-weight vector $w_i=1/N$ is feasible when $\bar{w}\ge 1/N$, so the set
+is non-empty; it is the intersection of a hyperplane with a box, hence compact
+and convex. A continuous function on a non-empty compact set attains its
+minimum. Strict convexity of the objective under $\hat{\Sig}\succ 0$ gives
+uniqueness.
+\end{proof}
+
+\begin{remark}[Why $\bar{w}$ exists at all]
+Without a cap, an estimated covariance that happens to make one pull look almost
+noiseless will concentrate nearly all weight on it, and the consensus degenerates
+toward a single pull---the very failure mode the framework exists to avoid. The
+cap trades a small amount of theoretical efficiency for the guarantee that the
+consensus always aggregates.
+\end{remark}
+
+\subsection{Shrinkage covariance}
+
+The Ledoit--Wolf estimator is
+$\hat{\Sig}=(1-\alpha)S+\alpha F$, with $S$ the sample covariance, $F$ a
+well-conditioned target, and $\alpha\in[0,1]$ chosen to minimize expected
+squared Frobenius loss. It is used because $N$ is typically small relative to
+the number of dates and $S^{-1}$ is correspondingly unstable.
+
+\subsection{Effective number of pulls}
+
+Two summaries are reported:
+\begin{equation}
+N_{\text{Kish}}=\frac{1}{\sum_i w_i^2},
+\qquad
+N_{\text{spec}}=\frac{\left(\sum_{m}\lambda_m\right)^2}{\sum_{m}\lambda_m^2},
+\end{equation}
+where $\lambda_m$ are the eigenvalues of the residual correlation matrix. The
+first measures weight concentration; the second measures how much of the
+variation is shared. Both equal $N$ only when weights are equal and residuals
+are uncorrelated, and both fall well below $N$ in the presence of
+near-duplicates. Reporting $N$ itself as the sample size would overstate
+precision, which is why the acceptance rule is stated in terms of
+$N_{\text{spec}}$.
+
+% =============================================================================
+\section{Temporal benchmarking}
+
+\subsection{Solution}
+
+With $Q\succ 0$, $W\succeq 0$, and $A$ the day-to-period aggregation matrix,
+\begin{equation}
+\bm{x}^*=(Q+A^\top WA)^{-1}(Q\bm{z}+A^\top W\bm{b}).
+\end{equation}
+The matrix $Q$ is built as $\rho_1 I+\rho_2 D_2^\top D_2$ where $D_2$ is the
+second-difference operator, so the first term penalizes departure from the daily
+consensus and the second penalizes roughness in the correction path. Movement
+preservation is thus imposed on the correction rather than on the level.
+
+\subsection{Exact mode}
+
+In exact mode the aggregate constraint $A\bm{x}=\bm{b}$ is imposed rather than
+penalized, giving the KKT system
+\begin{equation}
+\begin{bmatrix} Q & A^\top\\ A & 0\end{bmatrix}
+\begin{bmatrix}\bm{x}\\ \bm{\lambda}\end{bmatrix}
+=
+\begin{bmatrix}Q\bm{z}\\ \bm{b}\end{bmatrix},
+\end{equation}
+which is solvable when $A$ has full row rank. Soft mode is the default because
+the lower-frequency GT series is itself measured with error, and imposing it
+exactly would transfer that error into the daily series without acknowledgement.
+
+% =============================================================================
+\section{Measurement-error correction}
+
+\subsection{Moment correction}
+
+Let $W_t=X_t+u_t$, let $M$ be the residual maker for the controls, and let
+$\Omega_u$ be the measurement-error covariance. From
+$\E[\bm{W}^\top M\bm{W}]=\E[\bm{X}^\top M\bm{X}]+\tr(M\Omega_u)$ and
+$\E[\bm{W}^\top M\bm{Y}]=\beta\,\E[\bm{X}^\top M\bm{X}]$,
+\begin{equation}
+\hat{\beta}=\frac{\bm{W}^\top M\bm{Y}}
+{\bm{W}^\top M\bm{W}-\tr(M\Omega_u)}.
+\end{equation}
+
+\begin{remark}[The denominator is a diagnostic]
+A non-positive denominator means the estimated measurement error accounts for
+all of the observed regressor variation after partialling out the controls. The
+implementation raises an error instead of returning a number. Returning a
+sign-flipped or explosive coefficient in that situation would be worse than
+failing, because the failure is informative: it says the constructed index has
+no usable signal left for this regression.
+\end{remark}
+
+\subsection{SIMEX}
+
+For a grid $\lambda\in\{0,\lambda_1,\dots,\lambda_K\}$, generate
+$W_t(\lambda,b)=W_t+\sqrt{\lambda}\,\tilde{u}_{tb}$ with
+$\tilde{u}_{tb}$ drawn to match $\Omega_u$, estimate $\hat\beta(\lambda,b)$ for
+$b=1,\dots,B$, and average over $b$. Fit a parametric curve
+$g(\lambda;\bm{\theta})$ to $\{(\lambda,\bar{\beta}(\lambda))\}$ and report
+$g(-1;\hat{\bm{\theta}})$, which extrapolates to the hypothetical case of no
+measurement error. SIMEX is reported alongside the moment correction rather than
+instead of it: agreement between the two is evidence that the classical error
+structure is adequate, and disagreement is evidence that it is not.
+
+% =============================================================================
+\section{Correspondence between mathematics and code}
+
+\begin{table}[H]
+\centering
+\small
+\caption{Where each result is implemented.}
+\begin{tabularx}{\textwidth}{llX}
+\toprule
+Result & Module & Entry point\\
+\midrule
+Huber edge estimate & \texttt{overlap.py} & \texttt{huber\_location}\\
+Graph WLS, diagnostics & \texttt{overlap.py} & \texttt{OverlapGraphCalibrator.fit}\\
+Exact/near duplicates & \texttt{duplicates.py} & \texttt{diagnose\_duplicates}\\
+Variance components, D-study & \texttt{gstudy.py} & \texttt{run\_gstudy}\\
+Design-based estimator & \texttt{consensus.py} & \texttt{fit\_design\_weighted\_consensus}\\
+Constrained GLS consensus & \texttt{consensus.py} & \texttt{fit\_gls\_consensus}\\
+Benchmark solution & \texttt{benchmark.py} & \texttt{temporal\_benchmark}\\
+Reliability, convergence & \texttt{reliability.py} & \texttt{assess\_reliability}\\
+Acceptance decision tree & \texttt{decision.py} & \texttt{evaluate\_batch}\\
+Moment correction, SIMEX & \texttt{eiv.py} & \texttt{reliability\_corrected\_ols}, \texttt{simex\_ols}\\
+\bottomrule
+\end{tabularx}
+\end{table}
+
+\end{document}

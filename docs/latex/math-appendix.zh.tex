@@ -1,0 +1,269 @@
+% RACER-GT 數學附錄（繁體中文）。
+\documentclass[12pt,a4paper,oneside]{article}
+\input{_preamble-zh}
+\lhead{RACER-GT：數學附錄}
+
+\title{\bfseries RACER-GT 數學附錄\\[0.4em]
+\large 推導、證明與估計器實作細節}
+\author{\racerauthor\\\small 大葉大學 財務金融學系}
+\date{\racerdate\ \textbullet\ 版本 \racerversion}
+
+\begin{document}
+\maketitle
+
+\begin{abstract}
+\noindent 本附錄收錄方法論主文中未完整展開的推導，並逐項說明軟體實際實作的估計器。撰寫原則是「可被查核」：每個結果都對應到計算它的模組與函式，讀者可以自行驗證程式與數學是否一致。實作與教科書估計器有三處刻意的差異，本文明確標示並說明理由，而不是留給讀者自己發現。
+\end{abstract}
+
+\tableofcontents
+\newpage
+
+% =============================================================================
+\section{符號}
+
+\begin{table}[H]
+\centering
+\small
+\caption{全文符號對照。}
+\begin{tabularx}{\textwidth}{llX}
+\toprule
+符號 & 值域 & 意義\\
+\midrule
+$t$ & $1,\dots,T$ & 歷史日曆日期\\
+$i$ & $1,\dots,N$ & complete pull（一次完整歷史重建）\\
+$j,k$ & $1,\dots,J$ & chunk（固定查詢視窗）\\
+$d,s,r$ & --- & collection day、stream、technical replicate\\
+$Y_{jt}$ & $[0,100]$ & 原始 GT 值，日期 $t$、chunk $j$\\
+$a_j,\ \ell_j$ & $\R_{>0},\R$ & chunk 尺度與其對數，$\ell_j=\log a_j$\\
+$X_t$ & $\R_{>0}$ & 共同尺度下的潛在訊號\\
+$Z_{it}$ & $\R$ & pull $i$ 在日期 $t$ 的校準值\\
+$\Sig$ & $\R^{N\times N}$ & 跨 pull 殘差共變異數\\
+$\wvec$ & $\Delta^{N-1}$ & consensus 權重，$\one^\top\wvec=1$\\
+$c_{\min}$ & $\R_{>0}$ & 進入 overlap edge 的最小原始值\\
+$m_{\min}$ & $\mathbb{N}$ & edge 所需最少可用重疊日數\\
+\bottomrule
+\end{tabularx}
+\end{table}
+
+% =============================================================================
+\section{穩健 edge 估計}
+
+\subsection{估計式}
+
+對 edge $(j,k)$，令 $r_1,\dots,r_n$ 為可用重疊日上的 log ratio
+$\log Y_{jt}-\log Y_{kt}$。Huber location 估計解
+\begin{equation}
+\sum_{i=1}^{n}\psi_c\!\left(\frac{r_i-\hat{\mu}}{\hat{\sigma}}\right)=0,
+\qquad
+\psi_c(u)=\max\{-c,\min(c,u)\},
+\end{equation}
+以 iteratively reweighted least squares 求解。令
+$w_i=\psi_c(u_i)/u_i$、$u_i=(r_i-\mu)/\hat{\sigma}$，更新式為
+\begin{equation}
+\mu^{(m+1)}=\frac{\sum_i w_i^{(m)} r_i}{\sum_i w_i^{(m)}},
+\end{equation}
+即對超出 $c\hat\sigma$ 的觀察值降權的加權平均。尺度 $\hat{\sigma}$ 採正規化後的 median absolute deviation。
+
+\subsection{Edge 估計的變異數}
+
+M-estimator 的漸近變異數為
+\begin{equation}
+\Var(\hat{\mu}) \;\approx\;
+\frac{\hat{\sigma}^2}{n}\cdot
+\frac{\E[\psi_c(u)^2]}{\big(\E[\psi_c'(u)]\big)^2}.
+\end{equation}
+此變異數成為圖問題中的 edge 精度 $1/\hat{v}_{jk}$。有兩個實作細節：
+\begin{enumerate}
+\item 設下界 $\hat{v}\leftarrow\max(\hat{v},v_{\text{floor}})$，否則估計變異數趨近零的 edge 會完全主導 normal equations；
+\item 對權重設上界 $1/\hat{v}\le w_{\max}$，理由相同但方向相反。
+\end{enumerate}
+
+\begin{remark}[與教科書估計器的差異之一]
+上下界不屬於古典 M-estimation 理論，是數值防護。作用是限制任一 edge 對全域解的影響力；恰好只有 $m_{\min}$ 天且數值幾乎相同的 edge，可能產生假性偏小的變異數。
+\end{remark}
+
+% =============================================================================
+\section{圖形加權最小平方}
+
+\subsection{Normal equations}
+
+令 $B$ 為刪去參考欄後的 incidence matrix、$\bm{r}$ 為堆疊的 edge 估計、
+$\Omega=\diag(\hat{v}_e)$，則
+\begin{equation}
+(B^\top\Omega^{-1}B)\,\hat{\bm{\ell}}=B^\top\Omega^{-1}\bm{r}.
+\end{equation}
+矩陣 $L=B^\top\Omega^{-1}B$ 是刪去參考列與欄後的加權 graph Laplacian，亦稱 grounded Laplacian。
+
+\begin{proposition}[正定性]
+若 $G$ 連通，則 grounded Laplacian $L$ 正定。
+\end{proposition}
+
+\begin{proof}
+對自由節點上任意 $\bm{x}\neq\bm{0}$，將參考項補零延伸為 $\tilde{\bm{x}}$，則
+$\bm{x}^\top L\bm{x}=\sum_{e=(j,k)}\hat{v}_e^{-1}(\tilde{x}_j-\tilde{x}_k)^2\ge 0$，等號成立僅當 $\tilde{\bm{x}}$ 在每個連通分量上為常數。連通性使分量唯一，而參考項為零把該常數釘為零，故 $\tilde{\bm{x}}=\bm{0}$，與假設矛盾。
+\end{proof}
+
+\subsection{由殘差得到的診斷}
+
+配適殘差 $\bm{\varepsilon}=\bm{r}-B\hat{\bm{\ell}}$ 正是 edge 量測的 cycle inconsistency：對 $G$ 中任一 cycle，邊估計沿環累加理應為零，$\bm{\varepsilon}$ 衡量其偏離。實作輸出：
+\begin{itemize}
+\item 連通性與分量數；
+\item $L$ 的 condition number，可揭露僅靠單一弱 edge 維繫的圖；
+\item 加權殘差平方和，作為 cycle-consistency 統計量；
+\item 由 $\diag(L^{-1})$ 得到的各節點標準誤。
+\end{itemize}
+這些量在 sequential stitching 下都不存在，因為 sequential stitching 只用一條 spanning path，沒有 cycle 可供檢驗。
+
+\subsection{對數常態偏誤修正}
+
+若 $Y_{jt}=a_jX_t\exp(\epsilon_{jt})$ 中 $\epsilon_{jt}\sim\mathcal{N}(0,\sigma_j^2)$，則 $\E[Y_{jt}]=a_jX_t\exp(\sigma_j^2/2)$。僅以 $\exp(-\hat{\ell}_j)$ 還原時，目標是中位數而非平均數。選用的修正再乘上 $\exp(-\hat{\sigma}_j^2/2)$。
+
+\begin{remark}[差異之二]
+此修正僅在對數常態假設下精確。預設開啟是因為乘法模型本身即指向它；設為可調參數，正是因為在此樣本規模下常態性無法檢定。
+\end{remark}
+
+% =============================================================================
+\section{變異成分}
+
+\subsection{期望均方}
+
+對主文的完全交叉設計（$n_t,n_d,n_s$ 個層級、$n_r$ 個 replicate），動差法方程由期望均方導出。以 $\sigma^2_{\bullet}$ 表示對應效應的成分，
+\begin{align}
+\E[\mathrm{MS}_T] &= \sigma^2_E + n_r\sigma^2_{TDS} + n_rn_s\sigma^2_{TD}
++ n_rn_d\sigma^2_{TS} + n_rn_dn_s\sigma^2_T,\\
+\E[\mathrm{MS}_{TD}] &= \sigma^2_E + n_r\sigma^2_{TDS} + n_rn_s\sigma^2_{TD},\\
+\E[\mathrm{MS}_{TDS}] &= \sigma^2_E + n_r\sigma^2_{TDS},\\
+\E[\mathrm{MS}_E] &= \sigma^2_E,
+\end{align}
+$D$、$S$、$TS$、$DS$ 有對應方程。由最高階項往下逐一回代即得各成分。
+
+\begin{remark}[差異之三：負的變異成分]
+動差法估計可能為負，而變異數不可能為負。實作預設截斷於零。截斷是標準做法，但會使被截斷的成分產生小幅向上偏誤，並連帶扭曲任何用到它的比值。輸出保留未截斷的原始值，讓讀者看見截斷發生的頻率；頻繁截斷代表設計規模不足以支撐所嘗試的分解。
+\end{remark}
+
+\subsection{Generalizability 與 dependability 係數}
+
+相對決策（跨日期排序）：
+\begin{equation}
+E\rho^2=\frac{\sigma^2_T}
+{\sigma^2_T+\dfrac{\sigma^2_{TD}}{n_d}+\dfrac{\sigma^2_{TS}}{n_s}
++\dfrac{\sigma^2_{TDS}+\sigma^2_E}{n_dn_s n_r}} .
+\end{equation}
+絕對決策的 dependability 係數 $\Phi$ 另計入 $D$ 與 $S$ 的主效應，因為當分數被單獨解讀（而非與其他日期相比）時，整體平移是有影響的：
+\begin{equation}
+\Phi=\frac{\sigma^2_T}
+{\sigma^2_T+\dfrac{\sigma^2_D}{n_d}+\dfrac{\sigma^2_S}{n_s}
++\dfrac{\sigma^2_{TD}}{n_d}+\dfrac{\sigma^2_{TS}}{n_s}
++\dfrac{\sigma^2_{DS}}{n_dn_s}
++\dfrac{\sigma^2_{TDS}+\sigma^2_E}{n_dn_sn_r}} .
+\end{equation}
+D-study 在 $(n_d,n_s,n_r)$ 網格上評估兩者，把分解轉為可執行的設計建議：對 $n_d$ 與對 $n_s$ 的偏導數，直接回答下一單位投入該花在哪裡。
+
+% =============================================================================
+\section{受限下的 consensus 權重}
+
+無限制解 $\wvec^*=\Sig^{-1}\one/(\one^\top\Sig^{-1}\one)$ 已於主文推導。預設設定改解
+\begin{equation}
+\min_{\wvec}\ \wvec^\top\hat{\Sig}\wvec
+\quad\text{s.t.}\quad
+\one^\top\wvec=1,\quad
+0\le w_i\le\bar{w}.
+\label{eq:qp-zh}
+\end{equation}
+
+\begin{proposition}[受限問題適定]
+若 $\hat{\Sig}\succeq 0$ 且 $\bar{w}\ge 1/N$，則 \eqref{eq:qp-zh} 的可行集非空、緊緻且凸，故最小值存在；若 $\hat{\Sig}\succ 0$ 則唯一。
+\end{proposition}
+
+\begin{proof}
+$\bar{w}\ge 1/N$ 時等權向量 $w_i=1/N$ 可行，故非空；可行集是超平面與方盒的交集，故緊緻且凸。連續函數在非空緊集上取得最小值。$\hat{\Sig}\succ 0$ 時目標嚴格凸，故唯一。
+\end{proof}
+
+\begin{remark}[為何需要上界 $\bar{w}$]
+若不設上界，當估計出的共變異數恰好讓某個 pull 看起來近乎無噪音時，權重會幾乎全部集中其上，consensus 退化為單一 pull——正是本框架要避免的失效模式。上界以少量理論效率換取「consensus 永遠是聚合結果」的保證。
+\end{remark}
+
+\subsection{Shrinkage 共變異數}
+
+Ledoit--Wolf 估計式為 $\hat{\Sig}=(1-\alpha)S+\alpha F$，其中 $S$ 為樣本共變異數、$F$ 為良置條件的目標、$\alpha\in[0,1]$ 使期望 Frobenius 平方損失最小。採用它是因為 $N$ 相對於日期數通常偏小，$S^{-1}$ 相應不穩定。
+
+\subsection{有效 pull 數}
+
+輸出兩個摘要：
+\begin{equation}
+N_{\text{Kish}}=\frac{1}{\sum_i w_i^2},
+\qquad
+N_{\text{spec}}=\frac{\left(\sum_{m}\lambda_m\right)^2}{\sum_{m}\lambda_m^2},
+\end{equation}
+$\lambda_m$ 為殘差相關矩陣的特徵值。前者衡量權重集中度，後者衡量變異被共享的程度。兩者僅在權重相等且殘差不相關時等於 $N$，在存在 near-duplicate 時都會明顯低於 $N$。直接把 $N$ 當樣本數會高估精度，這正是 acceptance rule 以 $N_{\text{spec}}$ 表述的原因。
+
+% =============================================================================
+\section{頻率 benchmark}
+
+\subsection{解}
+
+$Q\succ 0$、$W\succeq 0$、$A$ 為日對期的聚合矩陣時，
+\begin{equation}
+\bm{x}^*=(Q+A^\top WA)^{-1}(Q\bm{z}+A^\top W\bm{b}).
+\end{equation}
+$Q$ 建構為 $\rho_1 I+\rho_2 D_2^\top D_2$，$D_2$ 為二階差分運算子；第一項懲罰偏離日頻 consensus，第二項懲罰修正路徑的粗糙度。因此 movement preservation 是施加在「修正量」而非「水準」上。
+
+\subsection{Exact 模式}
+
+Exact 模式把聚合約束 $A\bm{x}=\bm{b}$ 由懲罰改為硬約束，得 KKT 系統
+\begin{equation}
+\begin{bmatrix} Q & A^\top\\ A & 0\end{bmatrix}
+\begin{bmatrix}\bm{x}\\ \bm{\lambda}\end{bmatrix}
+=
+\begin{bmatrix}Q\bm{z}\\ \bm{b}\end{bmatrix},
+\end{equation}
+在 $A$ 為列滿秩時可解。預設為 soft 模式，因為低頻 GT 數列本身也帶測量誤差，硬性套用等於把該誤差原封不動轉嫁到日頻數列而不加聲明。
+
+% =============================================================================
+\section{測量誤差修正}
+
+\subsection{動差修正}
+
+令 $W_t=X_t+u_t$、$M$ 為控制變數的 residual maker、$\Omega_u$ 為測量誤差共變異數。由
+$\E[\bm{W}^\top M\bm{W}]=\E[\bm{X}^\top M\bm{X}]+\tr(M\Omega_u)$ 與
+$\E[\bm{W}^\top M\bm{Y}]=\beta\,\E[\bm{X}^\top M\bm{X}]$，
+\begin{equation}
+\hat{\beta}=\frac{\bm{W}^\top M\bm{Y}}
+{\bm{W}^\top M\bm{W}-\tr(M\Omega_u)}.
+\end{equation}
+
+\begin{remark}[分母本身就是診斷]
+分母非正代表：在控制變數被 partial out 之後，估計的測量誤差已吃掉全部可觀察的解釋變數變異。實作在此拋出錯誤而非回傳數值。該情況下回傳一個符號翻轉或爆炸的係數，比直接失敗更糟——因為失敗本身帶有資訊：它說明這個建構出的指標在這條迴歸中已無可用訊號。
+\end{remark}
+
+\subsection{SIMEX}
+
+對網格 $\lambda\in\{0,\lambda_1,\dots,\lambda_K\}$，生成
+$W_t(\lambda,b)=W_t+\sqrt{\lambda}\,\tilde{u}_{tb}$（$\tilde{u}_{tb}$ 依 $\Omega_u$ 抽取），對 $b=1,\dots,B$ 估 $\hat\beta(\lambda,b)$ 後對 $b$ 平均。以參數曲線 $g(\lambda;\bm{\theta})$ 配適 $\{(\lambda,\bar{\beta}(\lambda))\}$，回報 $g(-1;\hat{\bm{\theta}})$，即外推至無測量誤差的假想情形。SIMEX 與動差修正並列回報而非擇一：兩者一致是古典誤差結構足夠的證據，兩者分歧則是不足的證據。
+
+% =============================================================================
+\section{數學與程式的對應}
+
+\begin{table}[H]
+\centering
+\small
+\caption{各結果的實作位置。}
+\begin{tabularx}{\textwidth}{llX}
+\toprule
+結果 & 模組 & 進入點\\
+\midrule
+Huber edge 估計 & \texttt{overlap.py} & \texttt{huber\_location}\\
+圖形 WLS 與診斷 & \texttt{overlap.py} & \texttt{OverlapGraphCalibrator.fit}\\
+Exact/near duplicates & \texttt{duplicates.py} & \texttt{diagnose\_duplicates}\\
+變異成分與 D-study & \texttt{gstudy.py} & \texttt{run\_gstudy}\\
+設計式參考估計量 & \texttt{consensus.py} & \texttt{fit\_design\_weighted\_consensus}\\
+受限 GLS consensus & \texttt{consensus.py} & \texttt{fit\_gls\_consensus}\\
+Benchmark 解 & \texttt{benchmark.py} & \texttt{temporal\_benchmark}\\
+Reliability 與收斂 & \texttt{reliability.py} & \texttt{assess\_reliability}\\
+Acceptance decision tree & \texttt{decision.py} & \texttt{evaluate\_batch}\\
+動差修正與 SIMEX & \texttt{eiv.py} & \texttt{reliability\_corrected\_ols}、\texttt{simex\_ols}\\
+\bottomrule
+\end{tabularx}
+\end{table}
+
+\end{document}

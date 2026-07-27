@@ -1,0 +1,250 @@
+% RACER-GT user guide (English).
+\documentclass[12pt,a4paper,oneside]{article}
+\input{_preamble-en}
+\lhead{RACER-GT: User Guide}
+
+\title{\bfseries RACER-GT User Guide\\[0.4em]
+\large Installation, Workflow, Data Contracts, and Outputs}
+\author{\racerauthor\\\small \raceraffil}
+\date{\racerdate\ \textbullet\ version \racerversion}
+
+\begin{document}
+\maketitle
+
+\begin{abstract}
+\noindent This guide takes a researcher from installation to an accepted daily
+Google Trends index. It documents the data contract a collector must satisfy,
+the four command-line steps, the Python API, every output file, and the failure
+modes that are most likely to occur in practice. Method and proofs are in the
+methodology manuscript and the mathematical appendix; this document is about
+operating the software correctly.
+\end{abstract}
+
+\tableofcontents
+\newpage
+
+% =============================================================================
+\section{Installation}
+
+RACER-GT requires Python 3.10 or later.
+
+\begin{lstlisting}[language=bash]
+# from PyPI
+python -m pip install racergt
+
+# from a release wheel
+python -m pip install racergt-1.0.0-py3-none-any.whl
+
+# from source, for development
+python -m pip install -e '.[dev]'
+pytest -q
+\end{lstlisting}
+
+The package is deliberately \emph{ingestion-first}: it contains no Google Trends
+scraper. Endpoints, rate limits, authentication, and terms of service change,
+and a statistical method that depends on an unofficial client inherits that
+fragility. The collector is your choice; the package only requires that it emit
+the schema in \cref{sec:contract}.
+
+% =============================================================================
+\section{The four-step workflow}
+
+\subsection{Step 1: lock the protocol}
+
+\begin{lstlisting}[language=bash]
+racergt design config.yaml --out protocol_bundle --anchor-date 2026-08-01
+\end{lstlisting}
+
+This produces \texttt{protocol.lock.yaml} with a SHA-256 protocol hash,
+\texttt{collection\_schedule.csv} with the balanced day $\times$ stream $\times$
+replicate plan, \texttt{chunk\_windows.csv} with the fixed query windows, and an
+audit manifest.
+
+\begin{remark}[Do not hand-edit the lock file]
+\texttt{RacerGTConfig.load\_yaml} recomputes the hash and raises if it disagrees
+with the stored value. Editing a locked setting by hand therefore fails loudly,
+which is the intended behaviour. To change a setting, edit the source
+configuration and regenerate.
+\end{remark}
+
+\subsection{Step 2: collect and convert}
+
+Follow the schedule. Preserve every raw response unmodified, then convert to the
+long format of \cref{sec:contract}. Record a hash of both the raw response and
+the numeric vector for each chunk. If a network interruption, login change,
+cookie clear, or client update occurs, record it in the metadata; do not decide
+unilaterally that the pull is invalid, because that decision would be a
+value-dependent exclusion.
+
+\subsection{Step 3: audit}
+
+\begin{lstlisting}[language=bash]
+racergt audit config.yaml raw_chunks.csv --out audit.json
+\end{lstlisting}
+
+The audit checks the batch against the locked protocol before any estimation
+happens. It exits with status 2 if the batch fails.
+
+\subsection{Step 4: run}
+
+\begin{lstlisting}[language=bash]
+racergt run config.yaml raw_chunks.csv \
+  --benchmark lower_frequency_benchmark.csv \
+  --out results
+\end{lstlisting}
+
+Exit status is 3 if the locked decision tree returns FAIL, so the command can
+gate an automated pipeline.
+
+\subsection{Python API}
+
+\begin{lstlisting}[language=Python]
+import pandas as pd
+from racergt import RacerGTConfig, RacerGTPipeline
+
+config = RacerGTConfig.load_yaml("config.yaml")
+raw = pd.read_csv("raw_chunks.csv")
+benchmark = pd.read_csv("lower_frequency_benchmark.csv")
+
+result = RacerGTPipeline(config).fit(raw, benchmark=benchmark)
+result.save("results")
+
+print(result.decision.status)      # PASS / REVIEW / FAIL
+print(result.final_series.head())
+\end{lstlisting}
+
+% =============================================================================
+\section{The data contract}\label{sec:contract}
+
+\subsection{Raw chunk table}
+
+One row per \texttt{pull\_id} $\times$ \texttt{chunk\_id} $\times$
+\texttt{historical\_date}.
+
+\begin{table}[H]
+\centering\small
+\caption{Required columns.}
+\begin{tabularx}{\textwidth}{llX}
+\toprule
+Column & Type & Meaning\\
+\midrule
+\texttt{series\_id} & string & research indicator identifier\\
+\texttt{pull\_id} & string & one complete history reconstruction\\
+\texttt{chunk\_id} & string & fixed query window, must exist in the manifest\\
+\texttt{historical\_date} & date & GT observation date\\
+\texttt{value} & float & raw GT relative search value, normally 0--100\\
+\texttt{collection\_day} & integer & design level of the collection day\\
+\texttt{stream\_id} & string & fixed composite collection environment\\
+\texttt{replicate\_id} & string & technical replicate within a day $\times$ stream cell\\
+\texttt{window\_start} & date & chunk start\\
+\texttt{window\_end} & date & chunk end\\
+\bottomrule
+\end{tabularx}
+\end{table}
+
+\begin{remark}[Two columns that are routinely misunderstood]
+\texttt{collection\_day} is the \emph{ordinal design level} of the collection
+day (0, 1, 2, \dots), not the day offset and not a calendar date. And
+\texttt{stream\_id} denotes a composite environment---device, browser profile,
+cookies, account state, network route, IP. An estimated stream effect must not
+be reported as an IP effect unless a crossover factorial design was actually
+run.
+\end{remark}
+
+Strongly recommended additional columns: \texttt{retrieved\_at},
+\texttt{protocol\_hash}, \texttt{keyword}, \texttt{geo}, \texttt{category},
+\texttt{search\_property}, \texttt{language}, \texttt{is\_partial},
+\texttt{raw\_response\_hash}, \texttt{network\_event}.
+
+\subsection{Lower-frequency benchmark table}
+
+Requires \texttt{series\_id}, \texttt{period\_start}, \texttt{period\_end},
+\texttt{value}; \texttt{se} is optional and falls back to the protocol default.
+
+% =============================================================================
+\section{Outputs}
+
+\begin{table}[H]
+\centering\small
+\caption{Files written by \texttt{result.save()}.}
+\begin{tabularx}{\textwidth}{lX}
+\toprule
+Path & Contents\\
+\midrule
+\texttt{RACER\_GT\_final\_series.csv} & final daily index, conditional SE, 95\% interval\\
+\texttt{complete\_calibrated\_pulls.csv} & every calibrated pull\\
+\texttt{calibration/*\_chunk\_scales.csv} & per-chunk global scale estimates\\
+\texttt{calibration/*\_overlap\_edges.csv} & robust edge estimates and diagnostics\\
+\texttt{duplicates/} & exact groups, pair metrics, components, residuals\\
+\texttt{consensus/design\_weighted\_consensus.csv} & design-based reference estimator\\
+\texttt{consensus/consensus\_weights.csv} & GLS / minimum-variance weights\\
+\texttt{gstudy/} & ANOVA, variance components, D-study, per transformation\\
+\texttt{reliability/} & pairwise reliability, convergence, day/stream dependence\\
+\texttt{decision/acceptance\_decision\_tree.csv} & every rule, observed vs threshold\\
+\texttt{report/RACER\_GT\_diagnostic\_report.md} & figure-based diagnostic report\\
+\texttt{summary.json} & protocol hash, status, headline diagnostics\\
+\bottomrule
+\end{tabularx}
+\end{table}
+
+\begin{remark}[Two consensus files, one final series]
+\texttt{consensus/design\_weighted\_consensus.csv} is a design-based reference
+estimator. It is reported for comparison and does \emph{not} feed
+\texttt{RACER\_GT\_final\_series.csv}, which comes from the temporal benchmark
+when one is supplied and from the GLS consensus otherwise. Large disagreement
+between the two is a warning sign worth investigating, not a bug.
+\end{remark}
+
+% =============================================================================
+\section{Reading the decision}
+
+A batch is FAIL if any mandatory rule fails, REVIEW if none fails but at least
+one is indeterminate, and PASS otherwise. Common causes, and what to do:
+
+\begin{table}[H]
+\centering\small
+\caption{Frequent outcomes and their remedies.}
+\begin{tabularx}{\textwidth}{lX}
+\toprule
+Symptom & Interpretation and action\\
+\midrule
+\texttt{OverlapGraphError} & the chunk design leaves a gap. Increase window length or reduce step so that consecutive chunks share at least \texttt{min\_overlap\_days} usable days.\\
+Low spectral effective pulls & retrievals are highly dependent. Add collection days or streams; adding technical replicates will not help.\\
+Detection rule indeterminate & no zero/non-zero variation, so $\kappa$ is undefined. The rule is automatically non-mandatory in this case and needs no action.\\
+High zero share & the term is too rare for daily frequency. Move to weekly, or use a broader Topic rather than a Term.\\
+Innovation G below threshold, level G above & levels reproduce but daily changes do not. Do not use the series in differences.\\
+Benchmark RMSE too large & the daily consensus and the lower-frequency series disagree. Check that both use the identical query specification.\\
+\bottomrule
+\end{tabularx}
+\end{table}
+
+% =============================================================================
+\section{Stata interoperability}
+
+Every table can be exported to Stata 118 format:
+
+\begin{lstlisting}[language=bash]
+racergt export-stata results/RACER_GT_final_series.csv final_series.dta
+\end{lstlisting}
+
+Supported read formats are CSV, Parquet, and XLS/XLSX; supported write formats
+are CSV, Parquet, XLSX, and Stata 118 \texttt{.dta}.
+
+% =============================================================================
+\section{Research conduct requirements}
+
+These are not optional style preferences; violating them invalidates the
+guarantees the framework provides.
+
+\begin{itemize}
+\item A static IP address is not evidence of an independent sample.
+\item Do not adjust reliability thresholds or select pulls after seeing
+financial results.
+\item If pilot monitoring leads to any protocol or decision-rule change, the
+monitored data become pilot data and the confirmatory batch restarts.
+\item Retain exact duplicates in the audit archive.
+\item PASS means the batch satisfies the locked measurement rules. It does not
+establish construct validity for the keyword and licenses no causal claim.
+\end{itemize}
+
+\end{document}

@@ -1,0 +1,208 @@
+% RACER-GT 使用手冊（繁體中文）。
+\documentclass[12pt,a4paper,oneside]{article}
+\input{_preamble-zh}
+\lhead{RACER-GT：使用手冊}
+
+\title{\bfseries RACER-GT 使用手冊\\[0.4em]
+\large 安裝、工作流程、資料契約與輸出}
+\author{\racerauthor\\\small 大葉大學 財務金融學系}
+\date{\racerdate\ \textbullet\ 版本 \racerversion}
+
+\begin{document}
+\maketitle
+
+\begin{abstract}
+\noindent 本手冊帶研究者從安裝走到一條通過驗收的日頻 Google Trends 指標。內容涵蓋收集器必須滿足的資料契約、四個命令列步驟、Python API、每一個輸出檔案，以及實務上最容易遇到的失效情況。方法與證明請見方法論主文與數學附錄；本文只談如何正確操作軟體。
+\end{abstract}
+
+\tableofcontents
+\newpage
+
+% =============================================================================
+\section{安裝}
+
+RACER-GT 需要 Python 3.10 以上。
+
+\begin{lstlisting}[language=bash]
+# 由 PyPI 安裝
+python -m pip install racergt
+
+# 由 release wheel 安裝
+python -m pip install racergt-1.0.0-py3-none-any.whl
+
+# 由原始碼安裝（開發用）
+python -m pip install -e '.[dev]'
+pytest -q
+\end{lstlisting}
+
+本套件刻意採 \emph{ingestion-first}：不內含任何 Google Trends 抓取程式。端點、rate limit、認證與服務條款都可能改變，統計方法若綁定非官方 client，就會繼承那份脆弱性。收集器由您選擇；套件只要求它輸出 \cref{sec:contract-zh} 的 schema。
+
+% =============================================================================
+\section{四步驟工作流程}
+
+\subsection{步驟一：鎖定 protocol}
+
+\begin{lstlisting}[language=bash]
+racergt design config.yaml --out protocol_bundle --anchor-date 2026-08-01
+\end{lstlisting}
+
+產出帶 SHA-256 protocol hash 的 \texttt{protocol.lock.yaml}、平衡後的 day $\times$ stream $\times$ replicate 計畫 \texttt{collection\_schedule.csv}、固定查詢視窗 \texttt{chunk\_windows.csv}，以及稽核 manifest。
+
+\begin{remark}[不要手動編輯 lock 檔]
+\texttt{RacerGTConfig.load\_yaml} 會重算 hash 並在不符時拋錯。手動改動被鎖定的設定因此會明確失敗，這是刻意的行為。要改設定，請改來源設定檔後重新產生。
+\end{remark}
+
+\subsection{步驟二：蒐集與轉換}
+
+依 schedule 執行。每個 response 原封不動保存，再轉為 \cref{sec:contract-zh} 的 long format。每個 chunk 都計算原始 response 與數值向量的 hash。若發生網路中斷、登入改變、cookie 清除或 client 更新，請記錄於 metadata；不要自行判定該 pull 無效——那會構成依賴數值的排除。
+
+\subsection{步驟三：稽核}
+
+\begin{lstlisting}[language=bash]
+racergt audit config.yaml raw_chunks.csv --out audit.json
+\end{lstlisting}
+
+稽核在任何估計之前，先比對批次與已鎖定 protocol。失敗時 exit code 為 2。
+
+\subsection{步驟四：執行}
+
+\begin{lstlisting}[language=bash]
+racergt run config.yaml raw_chunks.csv \
+  --benchmark lower_frequency_benchmark.csv \
+  --out results
+\end{lstlisting}
+
+若鎖定的 decision tree 回傳 FAIL，exit code 為 3，可直接用於自動化流程的閘門。
+
+\subsection{Python API}
+
+\begin{lstlisting}[language=Python]
+import pandas as pd
+from racergt import RacerGTConfig, RacerGTPipeline
+
+config = RacerGTConfig.load_yaml("config.yaml")
+raw = pd.read_csv("raw_chunks.csv")
+benchmark = pd.read_csv("lower_frequency_benchmark.csv")
+
+result = RacerGTPipeline(config).fit(raw, benchmark=benchmark)
+result.save("results")
+
+print(result.decision.status)      # PASS / REVIEW / FAIL
+print(result.final_series.head())
+\end{lstlisting}
+
+% =============================================================================
+\section{資料契約}\label{sec:contract-zh}
+
+\subsection{Raw chunk table}
+
+每列對應一個 \texttt{pull\_id} $\times$ \texttt{chunk\_id} $\times$ \texttt{historical\_date}。
+
+\begin{table}[H]
+\centering\small
+\caption{必要欄位。}
+\begin{tabularx}{\textwidth}{llX}
+\toprule
+欄位 & 型別 & 意義\\
+\midrule
+\texttt{series\_id} & string & 研究指標識別碼\\
+\texttt{pull\_id} & string & 一次完整歷史重建\\
+\texttt{chunk\_id} & string & 固定查詢視窗，須存在於 manifest\\
+\texttt{historical\_date} & date & GT 觀察日期\\
+\texttt{value} & float & 原始 GT 相對搜尋值，通常 0--100\\
+\texttt{collection\_day} & integer & 蒐集日的設計層級\\
+\texttt{stream\_id} & string & 固定的複合蒐集環境\\
+\texttt{replicate\_id} & string & day $\times$ stream 格內的 technical replicate\\
+\texttt{window\_start} & date & chunk 起日\\
+\texttt{window\_end} & date & chunk 迄日\\
+\bottomrule
+\end{tabularx}
+\end{table}
+
+\begin{remark}[兩個經常被誤解的欄位]
+\texttt{collection\_day} 是蒐集日的\emph{序數設計層級}（0、1、2……），\textbf{不是} day offset，也不是日曆日期。\texttt{stream\_id} 代表複合環境——裝置、瀏覽器 profile、cookie、帳號狀態、網路路徑、IP。除非確實執行了 crossover factorial design，否則估出的 stream effect 不得報告為 IP effect。
+\end{remark}
+
+強烈建議另存：\texttt{retrieved\_at}、\texttt{protocol\_hash}、\texttt{keyword}、\texttt{geo}、\texttt{category}、\texttt{search\_property}、\texttt{language}、\texttt{is\_partial}、\texttt{raw\_response\_hash}、\texttt{network\_event}。
+
+\subsection{低頻 benchmark table}
+
+需要 \texttt{series\_id}、\texttt{period\_start}、\texttt{period\_end}、\texttt{value}；\texttt{se} 為選填，缺省時採 protocol 預設值。
+
+% =============================================================================
+\section{輸出}
+
+\begin{table}[H]
+\centering\small
+\caption{\texttt{result.save()} 產生的檔案。}
+\begin{tabularx}{\textwidth}{lX}
+\toprule
+路徑 & 內容\\
+\midrule
+\texttt{RACER\_GT\_final\_series.csv} & 最終日頻指標、條件式標準誤、95\% 區間\\
+\texttt{complete\_calibrated\_pulls.csv} & 全部校準後的 pull\\
+\texttt{calibration/*\_chunk\_scales.csv} & 各 chunk 的全域尺度估計\\
+\texttt{calibration/*\_overlap\_edges.csv} & 穩健 edge 估計與診斷\\
+\texttt{duplicates/} & exact groups、pair metrics、components、殘差\\
+\texttt{consensus/design\_weighted\_consensus.csv} & 設計式參考估計量\\
+\texttt{consensus/consensus\_weights.csv} & GLS／最小變異權重\\
+\texttt{gstudy/} & 各轉換的 ANOVA、變異成分、D-study\\
+\texttt{reliability/} & pairwise reliability、收斂路徑、day/stream 相依\\
+\texttt{decision/acceptance\_decision\_tree.csv} & 每條規則的觀察值與門檻\\
+\texttt{report/RACER\_GT\_diagnostic\_report.md} & 圖表式診斷報告\\
+\texttt{summary.json} & protocol hash、狀態、主要診斷\\
+\bottomrule
+\end{tabularx}
+\end{table}
+
+\begin{remark}[兩個 consensus 檔案，但只有一條最終數列]
+\texttt{consensus/design\_weighted\_consensus.csv} 是設計式參考估計量，僅供對照，\textbf{不會}進入 \texttt{RACER\_GT\_final\_series.csv}。後者在提供 benchmark 時來自 temporal benchmark，否則來自 GLS consensus。兩者若差距很大，是值得追查的警訊，不是程式錯誤。
+\end{remark}
+
+% =============================================================================
+\section{解讀 decision}
+
+任一 mandatory 規則失敗即 FAIL；無失敗但有 indeterminate 則 REVIEW；否則 PASS。常見成因與處置：
+
+\begin{table}[H]
+\centering\small
+\caption{常見結果與對應處置。}
+\begin{tabularx}{\textwidth}{lX}
+\toprule
+現象 & 解讀與處置\\
+\midrule
+\texttt{OverlapGraphError} & chunk 設計有缺口。加長視窗或縮短 step，使相鄰 chunk 至少共享 \texttt{min\_overlap\_days} 個可用日。\\
+Spectral 有效 pull 數過低 & 重複取得高度相依。應增加 collection day 或 stream；增加 technical replicate 無濟於事。\\
+Detection 規則 indeterminate & 無零／非零變異，$\kappa$ 無定義。此情況下規則自動轉為非強制，無需處理。\\
+零值占比過高 & 該詞彙在日頻下太稀疏。改用週頻，或改查較廣的 Topic 而非 Term。\\
+Innovation G 未達標但 level G 達標 & 水準可重現、日變動不可重現。不要以差分形式使用該數列。\\
+Benchmark RMSE 過大 & 日頻 consensus 與低頻數列不一致。請確認兩者使用完全相同的查詢設定。\\
+\bottomrule
+\end{tabularx}
+\end{table}
+
+% =============================================================================
+\section{Stata 互通}
+
+所有表格皆可輸出為 Stata 118 格式：
+
+\begin{lstlisting}[language=bash]
+racergt export-stata results/RACER_GT_final_series.csv final_series.dta
+\end{lstlisting}
+
+可讀格式：CSV、Parquet、XLS/XLSX；可寫格式：CSV、Parquet、XLSX、Stata 118 \texttt{.dta}。
+
+% =============================================================================
+\section{研究執行上的必要限制}
+
+以下並非風格偏好；違反這些條件會使本框架提供的保證失效。
+
+\begin{itemize}
+\item 固定 IP 不構成獨立樣本的證據。
+\item 不得在看過財金結果後調整 reliability 門檻或挑選 pull。
+\item 若 pilot 監控導致 protocol 或 decision rule 改變，被監控的資料即成為 pilot 資料，正式批次必須重新開始。
+\item exact duplicates 必須保留於 audit archive。
+\item PASS 僅代表該批資料通過已鎖定的量測規則，不代表關鍵字具 construct validity，也不允許任何因果宣稱。
+\end{itemize}
+
+\end{document}
