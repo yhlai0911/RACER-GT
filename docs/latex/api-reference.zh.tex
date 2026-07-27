@@ -122,6 +122,15 @@ from racergt.simulation import SimulationSettings, simulate_racergt_data
 from racergt.validation import run_monte_carlo
 \end{lstlisting}
 
+\texttt{run\_monte\_carlo} 回傳的 \texttt{ValidationResult} 含三個 frame：
+\texttt{metrics}（每個 replication $\times$ 估計量 $\times$ 資訊集一列）、
+\texttt{summary}（平均值另附 \texttt{sd\_rmse} 與 \texttt{mcse\_rmse}）與
+\texttt{paired\_tests}。每個估計量都在兩個資訊集下各評估一次——僅使用校準後的
+pulls，以及套用\emph{完全相同}的 temporal benchmark——因為以已 benchmark 的
+\RACER{} 對比未 benchmark 的基準，會把估計量的效果與額外資訊混在一起。
+Single pull 一列取所有 pull 的平均而非固定某一欄。
+\texttt{scripts/make\_figures.py} 由同一份 CSV 重繪論文圖表。
+
 \section{檔案 I/O}
 
 \texttt{racergt.io.read\_table} 可讀 CSV、Parquet、XLS/XLSX；\texttt{write\_table} 可寫 CSV、Parquet、XLSX 與 Stata 118 \texttt{.dta}。

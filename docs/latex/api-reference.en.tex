@@ -151,6 +151,16 @@ from racergt.simulation import SimulationSettings, simulate_racergt_data
 from racergt.validation import run_monte_carlo
 \end{lstlisting}
 
+\texttt{run\_monte\_carlo} returns a \texttt{ValidationResult} holding
+\texttt{metrics} (one row per replication, estimator and information set),
+\texttt{summary} (means plus \texttt{sd\_rmse} and \texttt{mcse\_rmse}) and
+\texttt{paired\_tests}. Each estimator is evaluated twice, once on the calibrated
+pulls alone and once after applying the \emph{same} temporal benchmark, because
+comparing a benchmarked \RACER{} against unbenchmarked baselines confounds the
+estimator with the extra information. The single-pull row averages over all
+pulls rather than taking a fixed column. \texttt{scripts/make\_figures.py}
+redraws the manuscript figures from the same CSVs.
+
 \section{File I/O}
 
 \texttt{racergt.io.read\_table} reads CSV, Parquet, XLS/XLSX;
