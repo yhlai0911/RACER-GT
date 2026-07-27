@@ -1,5 +1,87 @@
 # Changelog
 
+## 1.1.0 - 2026-07-27
+
+Acts on an external methodological review of 1.0.0. Two of the findings change
+reported results, so this release supersedes the 1.0.0 Monte Carlo numbers
+wherever they appear.
+
+> **Protocol hashes change in this release.** `ConsensusConfig.center_pull_bias`
+> has a new default, so every `protocol.lock.yaml` written by 1.0.0 will fail its
+> hash check on load. Regenerate locked protocols from their source config with
+> `save_yaml`. This is the reproducibility mechanism working as designed, not a
+> defect.
+
+### Fixed
+
+- **The Monte Carlo comparison was not information-matched.** `final_series`
+  returns the benchmarked series when a benchmark is available, but the three
+  cross-pull baselines never received one, and in simulation the benchmark is
+  generated from the latent truth. `validation.py` now evaluates every estimator
+  twice, with and without the same benchmark, and reports paired tests and Monte
+  Carlo standard errors. Under matched information sets the covariance-adjusted
+  consensus shows **no detectable advantage over a simple mean** (−0.0167,
+  p = 0.15). The manuscripts, READMEs, release validation record, and landing
+  page now report that alongside the two findings that do favour the framework:
+  aggregation cuts RMSE 49.1% against a single pull (20/20 replications) and
+  temporal benchmarking adds about 0.22 more.
+- **`center_pull_bias` subtracted a common constant, not a pull-specific bias.**
+  After `baseline_rescale` every pull shares the same baseline mean, which forces
+  the centring term to `100 - mean(daily medians)` for every pull. It shifted the
+  whole consensus, violated `E(e_t)=0` in the consensus model, and degraded RMSE
+  in all twenty replications. Now off by default; `pull_bias_cross_pull_sd` is
+  reported so the degeneracy stays visible. Mean bias returns to machine
+  precision (−0.1317 → +3.2e-17).
+- **Three formulas in the mathematical appendix disagreed with the code**, in
+  both languages: `E-rho^2`/`Phi` divided `sigma^2_TDS` by `n_d n_s n_r` instead
+  of `n_d n_s` (which overstates G whenever `n_r > 1`, including the recommended
+  42-pull design), the benchmark penalty was described as a second-difference
+  operator when the implementation builds a first-difference one, and the
+  lognormal correction was derived from the observation error's variance rather
+  than the estimator's. A parametrized test in `tests/test_gstudy.py` now pins
+  the coefficients to the documented formulas.
+- `evaluate_batch` read upstream diagnostics with `.get(key, nan)`, so renaming a
+  key upstream silently downgraded a batch from PASS to REVIEW. Keys are now
+  named constants and a missing key raises.
+- Missing residuals in covariance estimation were zero-filled, which shrinks
+  variances and covariances toward zero and therefore overstates precision.
+  Pairwise-complete moments are used instead.
+
+### Changed
+
+- Convergence is assessed by leave-one-out influence rather than by the last step
+  of one arbitrary insertion order. `final_convergence_mae_100` is now the worst
+  single-pull influence, which does not depend on which pull the metadata sort
+  happened to place last; the sequential path is still reported.
+- The single-pull Monte Carlo baseline is the mean over all pulls rather than a
+  fixed first column, so it measures what downloading once should be expected to
+  produce.
+- Exact duplicates in the simulator are assigned at random among pulls retrieved
+  earlier, instead of always to the last collection day, which previously
+  confounded duplication with the design cell.
+- The English manuscript gained a related-work subsection covering the GT
+  measurement literature it had omitted, and both bibliographies now carry the
+  union of the two: Fleiss, Kish, and Newey–West were used but uncited in the
+  Chinese version; West, Bleher–Dimpfl, Cebrián–Domenech, Medeiros–Pires, Hölzl,
+  and the Google documentation were absent from the English one.
+
+### Added
+
+- `scripts/make_figures.py` regenerates the manuscript figures from
+  `monte_carlo_results/`. The figures were previously produced by hand, so
+  nothing tied them to the published numbers.
+- Diagnostics for zero handling: aggregating a zero chunk against a positive one
+  yields a positive value, so a partly-zero date does not stay zero.
+  `n_dates_with_zero_chunk` and `n_dates_zero_masked_by_aggregation` make that
+  visible, and both manuscripts now state the behaviour rather than implying
+  zeros always survive.
+- An explicit statement of the two conditions bridging the retrieval-design
+  expectation and the latent common-scale signal, which the unbiasedness
+  propositions require but 1.0.0 left implicit.
+- The known downward bias of the spectral effective pull count is documented:
+  residuals are centred on the median of the pulls themselves, so the count falls
+  below the nominal value even under independence (8.57 at m = 9).
+
 ## 1.0.0 - 2026-07-27
 
 First stable release. The statistical pipeline is unchanged from 0.1.0: a
