@@ -28,9 +28,16 @@ jobs:
           sudo apt-get update
           sudo apt-get install -y --no-install-recommends \
             texlive-xetex texlive-latex-extra texlive-science \
-            texlive-fonts-recommended latexmk poppler-utils \
+            texlive-fonts-recommended texlive-lang-chinese \
+            latexmk poppler-utils \
             fonts-noto-core fonts-noto-cjk fonts-noto-cjk-extra
           fc-cache -f
+
+      - name: Verify xeCJK is present
+        # texlive-xetex alone does not ship xeCJK; it comes from
+        # texlive-lang-chinese. Without this the English documents build and
+        # the Chinese ones fail, which is easy to miss in a long log.
+        run: kpsewhich xeCJK.sty || { echo "::error::xeCJK.sty not found"; exit 1; }
 
       - name: Verify the required fonts resolve
         # Fail early with a readable message rather than deep inside a
