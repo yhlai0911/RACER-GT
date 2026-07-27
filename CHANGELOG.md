@@ -1,5 +1,52 @@
 # Changelog
 
+## 1.2.0 - 2026-07-27
+
+Tests a prediction that 1.1.0 made and could not check, and reports that the
+prediction fails.
+
+### Fixed
+
+- **1.1.0 claimed that the covariance adjustment should win once dependence is
+  heterogeneous. It does not.** That claim was a conjecture offered to explain
+  why the covariance-adjusted consensus showed no advantage over a simple mean;
+  it was stated in the abstract of both manuscripts as though it were
+  established. `examples/run_dependence_experiment.py` now places a subset of
+  pulls behind a shared cache disturbance that cuts across collection days and
+  streams, so the dependence is invisible to the design facets and recoverable
+  only from the residual covariance. Across four scenarios and 20 replications
+  each, GLS wins none of them significantly and is significantly worse in two.
+  Both manuscripts now report the test instead of the conjecture.
+
+### Added
+
+- `examples/run_dependence_experiment.py` and `dependence_experiment/`, covering
+  the shared-dependence dimension of the factorial Monte Carlo that the
+  limitations section has been asking for since 1.0.0. It also carries two
+  diagnostics that decide how the negative result should be read: the
+  constraints are not responsible (the constrained, uncapped, and fully
+  unrestricted solutions all reach 4.1752, identical to the digit, because the
+  unrestricted solution already lies inside the feasible set), and the mechanism
+  works as designed (weights correlate -0.562 with shared residual dependence,
+  negative in all ten replications). What remains is the error in estimating
+  Sigma from nine pulls, which exceeds the efficiency that exploiting the true
+  structure buys -- the same failure mode that motivated Ledoit-Wolf shrinkage in
+  the portfolio literature.
+- `SimulationSettings.cache_cluster_fraction` and `cache_cluster_weight`. At
+  zero they reproduce the previous behaviour byte-for-byte, so the headline
+  Monte Carlo numbers are unchanged and the two experiments stay comparable.
+
+### Changed
+
+- The practical recommendation, not the theory. With Sigma known the GLS weights
+  are still minimum-variance among linear unbiased estimators; that derivation
+  depends on no simulation. What changes is the advice at the design sizes this
+  paper recommends (21-42 pulls, a single year), where no detectable gain in
+  point accuracy should be expected and a simple mean is an equally defensible
+  primary choice. The diagnostic value is unaffected: the spectral effective
+  pull count fell from 4.93 to 2.95 across the scenarios, correctly reporting
+  that nine pulls had become worth about three.
+
 ## 1.1.0 - 2026-07-27
 
 Acts on an external methodological review of 1.0.0. Two of the findings change

@@ -146,9 +146,16 @@ Three findings, two favourable and one not. Cross-pull aggregation cuts RMSE by
 against the median. Temporal benchmarking adds about 0.22 more, almost identically for
 RACER-GT and for the simple mean. Covariance-adjusted weighting, however, shows
 <strong>no detectable advantage over a simple mean</strong> (&minus;0.0167, p = 0.15,
-winning 7 of 20). We report that rather than only the favourable comparison: dependence
-in this DGP is homogeneous, and GLS beats equal weights only when dependence strength
-varies across pulls. This is one data-generating process, not a universal guarantee.
+winning 7 of 20). The natural explanation &mdash; that dependence here is too homogeneous
+for GLS to exploit &mdash; was tested directly in a four-scenario experiment that puts a
+subset of pulls behind a shared cache disturbance cutting across the design facets.
+<strong>The explanation fails</strong>: GLS wins no heterogeneous scenario significantly
+and is significantly worse in two. The constraints are not responsible and the mechanism
+works as intended; what remains is the error in estimating the covariance from nine pulls.
+The theory is untouched &mdash; GLS is still BLUE with the covariance known &mdash; but at
+these design sizes a simple mean is an equally defensible primary choice. The diagnostic
+value stands: the spectral effective pull count fell 4.93 &rarr; 2.95, correctly reporting
+that nine pulls had become worth about three.
 </div>
 
 <h2>What this does not claim</h2>

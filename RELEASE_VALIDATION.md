@@ -119,10 +119,20 @@ Three findings, two favourable and one not. Cross-pull aggregation cuts RMSE by
 **49.1%** against a single pull (20/20 replications) and 10.3% against the
 median. Temporal benchmarking adds about 0.22 more, and adds it almost
 identically to RACER-GT and to the simple mean. Covariance-adjusted weighting,
-however, shows **no detectable advantage over a simple mean** (p = 0.15). We
-report that rather than only the favourable comparison: dependence in this DGP
-is homogeneous, and GLS beats equal weights only when dependence strength varies
-across pulls. This is one data-generating process, not a universal guarantee —
+however, shows **no detectable advantage over a simple mean** (p = 0.15).
+
+The natural explanation is that dependence here is too homogeneous for GLS to
+exploit. `examples/run_dependence_experiment.py` tests that directly, putting a
+subset of pulls behind a shared cache disturbance that cuts across the design
+facets. **The explanation fails**: across four scenarios GLS wins none
+significantly and is significantly worse in two. The constraints are not
+responsible (the unrestricted solution is identical to the digit) and the
+mechanism works as intended (weights correlate −0.562 with shared residual
+dependence); what remains is the error in estimating Sigma from nine pulls. The
+theory is untouched — GLS is still BLUE with Sigma known — but at these design
+sizes a simple mean is an equally defensible primary choice. The diagnostic
+value stands: the spectral effective pull count fell 4.93 → 2.95, correctly
+reporting that nine pulls had become worth about three. This is one data-generating process, not a universal guarantee —
 `examples/run_monte_carlo.py` reproduces it and `scripts/make_figures.py`
 redraws the figures from the same CSVs.
 
