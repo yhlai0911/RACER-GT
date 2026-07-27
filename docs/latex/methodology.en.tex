@@ -49,13 +49,20 @@ daily-innovation reliability with a locked acceptance decision tree; and
 reliability-corrected OLS and SIMEX.
 
 We state the identification conditions explicitly and prove conditional
-unbiasedness and minimum-variance results under them. In twenty controlled
-Monte Carlo replications, \RACER{} attains a mean RMSE of $3.5265$ against a
-known latent truth, compared with $7.2305$ for a single pull, $4.1710$ for the
-cross-pull median, and $3.7253$ for the simple cross-pull mean. These results
-support the claim that the framework reduces reconstruction error under the
-stated data-generating process; they are not a universal optimality guarantee
-across keywords, regions, or GT versions.
+unbiasedness and minimum-variance results under them. Twenty controlled Monte
+Carlo replications, evaluated at matched information sets, give a mixed result.
+Cross-pull aggregation cuts mean RMSE against a known latent truth from $7.3519$
+for a single pull to $3.7421$, a $49.1\%$ reduction that improves in all twenty
+replications, and a further $10.3\%$ below the cross-pull median's $4.1710$.
+Temporal benchmarking contributes about $0.22$ more, holding the estimator fixed
+($p\approx3\times10^{-12}$). Covariance-adjusted weighting, however, shows no
+detectable advantage over the simple cross-pull mean of $3.7253$ ($-0.0167$,
+$p=0.152$). We report that negative result rather than the favourable
+comparison, and explain it: dependence across pulls is highly homogeneous under
+this data-generating process, whereas the theoretical advantage of GLS over
+equal weights requires dependence strength to differ across pulls. None of these
+figures is a universal optimality guarantee across keywords, regions, or GT
+versions.
 
 \medskip
 \noindent\textbf{Keywords:} Google Trends; investor attention; measurement
@@ -72,7 +79,7 @@ generalized least squares; temporal benchmarking; SIMEX.
 % =============================================================================
 \section{Introduction}
 
-Search data have become a standard empirical input in finance. \citet{DaEG2011}
+Search data have become a standard empirical input in finance. \citet{DaEG2011,DaEG2015}
 showed that Google search frequency for ticker symbols captures retail investor
 attention in a way that pre-existing proxies do not; \citet{PreisMS2013}
 documented associations between search volume for finance-related terms and
@@ -227,6 +234,61 @@ $\sigma^2_u$, the OLS slope is attenuated by the reliability ratio
 $\lambda = \sigma^2_W/(\sigma^2_W + \sigma^2_u)$. Measurement work that stops at
 the construction stage leaves this bias in place.
 
+\subsection{What the existing literature establishes}\label{sec:related}
+
+Each failure mode above has been documented separately, and the contribution
+here is to place them in one measurement chain rather than to discover them.
+\citet{EichenauerIMS2022} identify sampling noise and frequency inconsistency in
+GT and propose repeated draws as the remedy; \citet{CebrianDomenech2024} show
+that the error in repeated pulls scales with a term's popularity;
+\citet{MedeirosPires2021} demonstrate that a single realization can flip a
+forecasting conclusion by chance. On construction, \citet{BleherDimpfl2022} knit
+multi-annual high-frequency series from overlapping windows, and
+\citet{West2020} calibrates across queries with an anchor bank that also handles
+rounding and censoring at low volume. \citet{Holzl2025} survey how GT is
+misused in the social sciences, including the practice of reading a constructed
+index as if it were a count.
+
+Two strands describe the retrieval mechanism itself. \citet{Neumann2023}, working
+with Google Health Trends, document the sampling mechanism and recommend
+aggregating related phrases with the Boolean \texttt{OR} operator to lift series
+above the privacy threshold. Most directly related to the present paper,
+\citet{Djorno2026} treat missing values, sampling variability, noise, and trend
+as a single preprocessing problem, and report that repeated requests are served
+from a cache that resets at midnight UTC, so that a fresh sample is drawn only
+once per day. Their remedy is hierarchical clustering, smoothing splines, and
+detrending, validated by the accuracy of downstream influenza forecasts.
+
+What that work leaves open is the step from a smoothed curve to an input for
+inference. None of it fixes the retrieval design in advance as a crossed
+experiment, decomposes error across collection day and stream, downweights
+dependent pulls by an estimated residual covariance, or carries the resulting
+uncertainty into the downstream regression. The distinction from
+\citet{Djorno2026} is the sharpest available statement of what this paper adds:
+that work seeks a cleaner curve and is evaluated by whether forecasts improve,
+whereas the target here is the measurement uncertainty itself, which is
+estimated, reported, and then propagated. A denoised series with no attached
+uncertainty is still consumed downstream as if it were measured without error.
+Once it is not, the downstream problem is the generated-regressor problem of
+\citet{Pagan1984}: a covariate that is itself an estimate makes the conventional
+standard error wrong even when the point estimate is serviceable. \cref{sec:eiv}
+therefore treats the constructed series as generated rather than observed, in
+the errors-in-variables tradition of \citet{Carroll2006} and
+\citet{CookStefanski1994}. Those are the gaps this paper addresses, and
+\cref{sec:scope} states precisely which of them come with proofs and which come
+with diagnostics only.
+
+\begin{remark}[Why the website version still needs chunking]
+Google documents that Trends normalizes a sample of search activity by time and
+region and scales it to $0$--$100$, with low volumes reported as
+zero~\citep{GoogleFAQ}. The 2025 API alpha offers a consistent scale across
+requests, but its historical range is a rolling window of roughly 1{,}800 days
+and its values remain relative rather than absolute~\citep{GoogleAPI2025}. A
+study spanning 2010--2026 therefore still reconstructs its daily history from
+multiple shorter windows, which is what makes the calibration problem in
+\cref{sec:calibration} unavoidable rather than optional.
+\end{remark}
+
 % =============================================================================
 \section{Estimands and identification}\label{sec:identification}
 
@@ -259,6 +321,41 @@ common-scale signal} $X_t$ is defined by the measurement model
 \Cref{def:mixture} requires no model of the retrieval error and is estimable by
 stratified averaging. \Cref{def:latent} requires the assumptions below but
 supports variance-optimal estimation.
+
+\begin{remark}[The bridge from $\theta_t$ to $X_t$]\label{rem:bridge}
+\Cref{def:mixture} and \cref{def:latent} are not the same target, and two
+conditions connect them. First, proportionality: $\theta_t = cX_t$ for some
+$c>0$ that does not depend on $t$, so that the expected GT response under a
+locked protocol tracks the latent relative signal. This rules out a
+systematic algorithmic bias that varies over time, and repeated measurement
+cannot test it. Second, negligible calibration error:
+$Z_{it}=Y_{it}\exp(-\hat{\ell}_{j(i)})$ is a nonlinear transform of an
+\emph{estimate}, and $\E[Y\exp(-\hat{\ell})] \neq a^{-1}\E[Y]$ in general
+because $\exp(\cdot)$ is convex. The first-order correction in
+\cref{sec:calibration} leaves
+$\E[\exp(-\hat{\ell}_j)] = a_j^{-1}\{1+O(n^{-1})\}$ with $n$ the number of
+usable overlap days, so $\E[\evec_t]=0$ in \eqref{eq:consensus-model} is an
+$O(n^{-1})$ approximation rather than an exact statement. The unbiasedness and
+minimum-variance results below should be read under both conditions: the first
+needs external validation, the second improves as the overlap design is
+densified.
+\end{remark}
+
+\begin{remark}[Why no additive pull bias is removed by default]\label{rem:centring}
+Version 1.0.0 subtracted $b_i = T^{-1}\sum_t (Z_{it}-m_t)$ from each pull, with
+$m_t$ the daily median. Baseline normalization has already set
+$T^{-1}\sum_t Z_{it} = 100$ for every pull, so when the baseline spans the full
+history --- the default that \texttt{QuerySpec} back-fills --- that centring term
+reduces to $b_i = 100 - T^{-1}\sum_t m_t$, the \emph{same constant} for every
+$i$. It removes no pull-specific difference; it shifts the entire consensus by
+the gap between the mean and the median, and it contradicts $\E[\evec_t]=0$ in
+\eqref{eq:consensus-model}. In the controlled simulation it moved mean bias from
+machine precision to $-0.1464$ and degraded RMSE in all twenty replications.
+Version 1.1.0 therefore defaults \texttt{center\_pull\_bias} to off and reports
+\texttt{pull\_bias\_cross\_pull\_sd}, which is near zero exactly when the term
+carries no pull-specific information. Enable it only with baseline rescaling
+switched off and a genuine additive offset expected.
+\end{remark}
 
 \subsection{Assumptions}
 
@@ -307,8 +404,15 @@ on the retained pulls.
 \begin{remark}[Where each assumption can fail]
 \Cref{as:overlap} fails near zero, because rounding makes the log ratio explode;
 this is why only cells at or above $c_{\min}$ contribute to edges, while zeros
-are retained in the final series and analyzed separately through detection
-reliability. \Cref{as:connected} fails if the chunk design leaves a gap; the
+are never imputed to positive values. One consequence of the aggregation rule
+must be stated plainly: when a date is covered by several chunks and only some
+of them return zero, the weighted average is positive, so that date is no longer
+zero in the final series. Zeros survive only where every covering chunk is zero.
+That is a corollary of averaging rather than an imputation decision, but it
+changes what detection reliability is measured on, so
+\texttt{CalibrationResult.diagnostics} reports
+\texttt{n\_dates\_with\_zero\_chunk} and
+\texttt{n\_dates\_zero\_masked\_by\_aggregation} for audit. \Cref{as:connected} fails if the chunk design leaves a gap; the
 implementation raises an error rather than silently returning a partially
 identified series. \Cref{as:common} fails if a subset of pulls shares a
 retrieval-side bias that is not shared by the rest; this is precisely what the
@@ -606,6 +710,17 @@ eigenvalues of the residual correlation matrix. Both fall below the nominal
 count when retrievals are dependent, and the acceptance rule in
 \cref{sec:decision} is stated in terms of the spectral count.
 
+The spectral count carries a known downward bias that should be read alongside
+it. Residuals are formed by subtracting the daily median \emph{of the pulls
+themselves}, which induces negative correlation among them, so the residual
+correlation matrix is not the identity even when the underlying pulls are
+independent. On independently generated series the estimate averages $8.57$ at
+$m=9$ and $2.59$ at $m=3$, shortfalls of $4.8\%$ and $13.7\%$. The direction is
+conservative --- it understates information and therefore errs toward rejecting a
+batch --- but it means the effective strictness of
+\texttt{min\_spectral\_effective\_pulls} exceeds its nominal value, most visibly
+in small designs.
+
 % =============================================================================
 \section{Stage 6: temporal benchmarking}\label{sec:benchmark}
 
@@ -621,8 +736,16 @@ benchmark solves
 (A\bm{x}-\bm{b})^{\top}W(A\bm{x}-\bm{b}),
 \label{eq:benchmark}
 \end{equation}
-where $Q$ combines fidelity to the daily consensus with a smoothness penalty on
-the correction path, and $W$ is the benchmark precision. This is the
+where $Q = (\lambda_I+\lambda_R)I + \lambda_D D_1^{\top}D_1$ combines fidelity to
+the daily consensus with a \emph{first}-difference smoothness penalty on the
+correction path, and $W$ is the benchmark precision. The ridge $\lambda_R$ is a
+separate configuration field whose only role is to keep $Q$ positive definite
+when $\lambda_I=0$, so the two identity terms are one coefficient
+mathematically. The default $\lambda_D/\lambda_I = 10$ is a strong smoothing
+prior: it pushes corrections toward low-frequency adjustments and can
+systematically damp daily shape near event days, which is where an attention
+index is most informative. Calibrate and lock that ratio in a pilot, and report
+sensitivity over $\lambda_D/\lambda_I \in \{1,10,100\}$. This is the
 quadratic-programming form of the movement-preservation idea familiar from
 \citet{Denton1971} and \citet{ChowLin1971}; treating $\bm{b}$ as noisy rather
 than exact is appropriate here because the lower-frequency GT series is itself a
@@ -714,33 +837,100 @@ history into independently normalized chunks, imposes rounding and zeros, and
 optionally injects exact duplicates. Because the latent truth is known by
 construction, estimators can be compared directly.
 
+\subsection{Matching the information sets}
+
+\texttt{PipelineResult.final\_series} returns the benchmarked series whenever a
+benchmark is available. Comparing that series against cross-pull baselines that
+never received the benchmark does not compare four estimators; it compares three
+estimators against one estimator plus an extra block of low-frequency
+information, and in simulation that block is generated from the latent truth
+itself. Every estimator is therefore evaluated twice: on the calibrated pulls
+alone, and after applying the \emph{same} weekly and monthly benchmark. The
+single-pull row reports mean performance over all pulls rather than one fixed
+pull, because a fixed column measures which pull happened to sort first, not
+what a researcher who downloads once should expect.
+
 \begin{table}[H]
 \centering
-\caption{Twenty controlled replications. Lower RMSE is better.}
+\small
+\caption{Twenty controlled replications (seeds 1200--1219). MCSE is the Monte
+Carlo standard error of the mean RMSE. Lower RMSE is better.}
 \label{tab:mc}
-\begin{tabular}{lrrrr}
+\begin{tabular}{llrrrrr}
 \toprule
-Estimator & Mean RMSE & Mean corr. & Mean innov.\ corr. & Mean peak recall\\
+Estimator & Benchmark & RMSE & MCSE & Corr. & Innov.\ corr. & Peak recall\\
 \midrule
-Single pull        & 7.2305 & 0.9695 & 0.8869 & 0.8868\\
-Cross-pull median  & 4.1710 & 0.9898 & 0.9556 & 0.9447\\
-Simple mean        & 3.7253 & 0.9919 & 0.9747 & 0.9526\\
-\RACER{}           & \textbf{3.5265} & \textbf{0.9927} & 0.9745 & 0.9526\\
+Single pull        & no  & 7.3519 & 0.0573 & 0.9688 & 0.8878 & 0.8912\\
+Cross-pull median  & no  & 4.1710 & 0.0819 & 0.9898 & 0.9556 & 0.9447\\
+Simple mean        & no  & \textbf{3.7253} & 0.0877 & 0.9919 & \textbf{0.9747} & 0.9526\\
+\RACER{}           & no  & 3.7421 & 0.0894 & 0.9918 & 0.9743 & 0.9526\\
+\midrule
+Single pull        & yes & 6.9881 & 0.0491 & 0.9717 & 0.8882 & 0.8947\\
+Cross-pull median  & yes & 3.9584 & 0.0695 & 0.9908 & 0.9558 & 0.9474\\
+Simple mean        & yes & \textbf{3.5058} & 0.0754 & \textbf{0.9928} & \textbf{0.9748} & \textbf{0.9553}\\
+\RACER{}           & yes & 3.5226 & 0.0770 & 0.9927 & 0.9745 & 0.9526\\
 \bottomrule
 \end{tabular}
 \end{table}
 
-Under this data-generating process, \RACER{} reduces mean RMSE by approximately
-$51.2\%$ relative to a single pull and by $5.3\%$ relative to the simple mean.
+\begin{table}[H]
+\centering
+\small
+\caption{Paired comparisons on RMSE. A positive difference favours estimator A;
+$n=20$ paired replications.}
+\label{tab:mcpaired}
+\begin{tabular}{llrrrl}
+\toprule
+Estimator A & Estimator B & Difference & $t$ & $p$ & A wins\\
+\midrule
+\RACER{} & Single pull & $+3.6098$ & $48.31$ & $2.4\times10^{-21}$ & 20/20\\
+\RACER{} & Cross-pull median & $+0.4289$ & $14.86$ & $6.5\times10^{-12}$ & 20/20\\
+\RACER{} & Simple mean & $-0.0167$ & $-1.49$ & $0.152$ & 7/20\\
+\RACER{} (bm.) & Simple mean (bm.) & $-0.0168$ & $-1.65$ & $0.116$ & 7/20\\
+\RACER{} (bm.) & \RACER{} (no bm.) & $+0.2194$ & $15.49$ & $3.1\times10^{-12}$ & 20/20\\
+Simple mean (bm.) & Simple mean (no bm.) & $+0.2195$ & $15.45$ & $3.3\times10^{-12}$ & 20/20\\
+\bottomrule
+\end{tabular}
+\end{table}
 
-\begin{remark}[Reporting the losses as well as the wins]
-\RACER{} does not dominate the simple mean on every statistic in
-\cref{tab:mc}: mean innovation correlation is marginally lower
-($0.9745$ versus $0.9747$) and peak recall is identical. We report this because
-the honest summary is that the gain concentrates in level accuracy, where
-scale-error correction and dependence-aware weighting have most to contribute,
-and is negligible for differenced quantities under this particular DGP. A
-practitioner whose model uses only innovations should weigh that accordingly.
+Three conclusions follow, two of which support the framework and one of which
+does not. First, cross-pull aggregation buys a great deal: at a matched
+information set \RACER{} cuts RMSE by $1-3.7421/7.3519=49.1\%$ against a single
+pull, improving in all twenty replications, and by a further $10.3\%$ against
+the cross-pull median. Second, covariance-adjusted weighting shows no detectable
+advantage over the simple mean, before benchmarking ($-0.0167$, $p=0.152$) or
+after it ($-0.0168$, $p=0.116$). Third, temporal benchmarking contributes about
+$0.22$ on its own, and contributes it almost identically to \RACER{} and to the
+simple mean ($0.2194$ versus $0.2195$): the gain belongs to the benchmark, not
+to the daily estimator it is paired with.
+
+\begin{remark}[Why the covariance adjustment is retained]
+The second conclusion is a negative result, and it bounds the claim rather than
+refuting the method. Dependence in this DGP is deliberately homogeneous: every
+pull shares its collection-day noise with fixed weight $0.5$, so the residual
+covariance matrix is close to equicorrelated, and the minimum-variance weights
+of an equicorrelated matrix are equal weights. The advantage of GLS over equal
+weighting requires dependence strength to \emph{differ} across pulls, as it
+would when some pulls are served from one cache and others are not. Detecting
+that requires a factorial simulation varying dependence heterogeneity, which
+this version does not provide.
+
+The simple mean also cannot produce what \RACER{} reports alongside its series:
+spectral and Kish effective pull counts, the near-duplicate dependence
+structure, per-day conditional standard errors, and measurement uncertainty in a
+form the downstream EIV correction can consume. Under this DGP those diagnostics
+do not translate into lower RMSE, but they are what answers the question of
+whether a batch is usable at all, which RMSE cannot answer.
+\end{remark}
+
+\begin{remark}[Reading the bias column]
+Mean bias for the single pull and for the simple mean sits at the $10^{-15}$
+level. That is an identity, not an estimator property: every complete pull is
+normalized to baseline mean 100 and the truth is defined on the same baseline,
+so their average cannot be biased. \RACER{} now lands at machine precision as
+well ($+3.2\times10^{-17}$). The cross-pull median's $-0.1464$ is real: a daily
+median sits systematically below the mean under the right-skewed event spikes in
+this DGP.
 \end{remark}
 
 % =============================================================================
@@ -813,6 +1003,14 @@ reproducible, auditable, and explicitly conditional estimate of a well-defined
 target, together with a locked rule for deciding whether a given batch of data
 is fit to use at all.
 
+The controlled evidence is deliberately mixed. Under this data-generating
+process, cross-pull aggregation and temporal benchmarking both deliver large and
+robust reductions in reconstruction error, while covariance-adjusted weighting
+does not beat a simple mean. We report the comparison that does not favour us
+alongside the ones that do, because that is the same discipline the framework
+asks of its users: a measurement procedure that can only produce flattering
+numbers cannot tell a researcher when to stop trusting it.
+
 % =============================================================================
 \begin{thebibliography}{99}
 \small
@@ -853,14 +1051,38 @@ Denton, F.~T. (1971). Adjustment of monthly or quarterly series to annual
 totals: An approach based on quadratic minimization. \textit{Journal of the
 American Statistical Association}, 66(333), 99--102.
 
+\bibitem[Djorno et al.(2026)]{Djorno2026}
+Djorno, C., Santillana, M., and Yang, S. (2026). Restoring the forecasting power
+of Google Trends with statistical preprocessing. \textit{International Journal
+of Forecasting}, 297--314.
+
 \bibitem[Eichenauer et al.(2022)]{EichenauerIMS2022}
 Eichenauer, V.~Z., Indergand, R., Mart\'{i}nez, I.~Z., and Sax, C. (2022).
 Obtaining consistent time series from Google Trends.
 \textit{Economic Inquiry}, 60(2), 694--705.
 
+\bibitem[Bleher and Dimpfl(2022)]{BleherDimpfl2022}
+Bleher, J. and Dimpfl, T. (2022). Knitting multi-annual high-frequency Google
+Trends to predict inflation and consumption. \textit{Econometrics and
+Statistics}, 24, 1--26.
+
+\bibitem[Cebri\'{a}n and Domenech(2024)]{CebrianDomenech2024}
+Cebri\'{a}n, E. and Domenech, J. (2024). Addressing Google Trends
+inconsistencies. \textit{Technological Forecasting and Social Change}, 202,
+123318.
+
+\bibitem[Da et al.(2015)]{DaEG2015}
+Da, Z., Engelberg, J., and Gao, P. (2015). The sum of all FEARS: Investor
+sentiment and asset prices. \textit{The Review of Financial Studies}, 28(1),
+1--32.
+
 \bibitem[Fleiss(1971)]{Fleiss1971}
 Fleiss, J.~L. (1971). Measuring nominal scale agreement among many raters.
 \textit{Psychological Bulletin}, 76(5), 378--382.
+
+\bibitem[H\"{o}lzl et al.(2025)]{Holzl2025}
+H\"{o}lzl, J., Keusch, F., and Sajons, C. (2025). The (mis)use of Google Trends
+data in the social sciences. \textit{Social Science Research}, 126, 103099.
 
 \bibitem[Huber(1964)]{Huber1964}
 Huber, P.~J. (1964). Robust estimation of a location parameter.
@@ -874,14 +1096,39 @@ Ledoit, O. and Wolf, M. (2004). A well-conditioned estimator for
 large-dimensional covariance matrices. \textit{Journal of Multivariate
 Analysis}, 88(2), 365--411.
 
+\bibitem[Medeiros and Pires(2021)]{MedeirosPires2021}
+Medeiros, M.~C. and Pires, H.~F. (2021). The proper use of Google Trends in
+forecasting models. arXiv:2104.03065.
+
 \bibitem[Newey and West(1987)]{NeweyWest1987}
 Newey, W.~K. and West, K.~D. (1987). A simple, positive semi-definite,
 heteroskedasticity and autocorrelation consistent covariance matrix.
 \textit{Econometrica}, 55(3), 703--708.
 
+\bibitem[Neumann et al.(2023)]{Neumann2023}
+Neumann, K., Mason, S.~M., Farkas, K., Santaularia, N.~J., Ahern, J., and
+Riddell, C.~A. (2023). Harnessing Google Health Trends data for epidemiologic
+research. \textit{American Journal of Epidemiology}, 192(3), 430--437.
+
+\bibitem[Pagan(1984)]{Pagan1984}
+Pagan, A.~R. (1984). Econometric issues in the analysis of regressions with
+generated regressors. \textit{International Economic Review}, 25(1), 221--247.
+
+\bibitem[Google Search Central(2025)]{GoogleAPI2025}
+Google Search Central (2025). Introducing the Google Trends API (alpha): A new
+way to access Trends data. Published 24 July 2025.
+
+\bibitem[Google Trends Help(n.d.)]{GoogleFAQ}
+Google Trends Help (n.d.). FAQ about Google Trends data.
+
 \bibitem[Preis et al.(2013)]{PreisMS2013}
 Preis, T., Moat, H.~S., and Stanley, H.~E. (2013). Quantifying trading behavior
 in financial markets using Google Trends. \textit{Scientific Reports}, 3, 1684.
+
+\bibitem[West(2020)]{West2020}
+West, R. (2020). Calibration of Google Trends time series. In
+\textit{Proceedings of the 29th ACM International Conference on Information and
+Knowledge Management}, 2257--2260.
 
 \end{thebibliography}
 

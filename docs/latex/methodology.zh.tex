@@ -22,7 +22,7 @@ Google Trends（GT）已廣泛用作投資人注意力、資訊需求與情緒�
 
 本文提出 \RACER（Randomized Acquisition, Calibration, Error Decomposition, and Reliability for Google Trends），其核心不是宣稱能恢復 Google 的絕對搜尋次數，而是先明確定義兩個可識別的統計目標：固定查詢與取得設計下的 GT 期望回傳值，以及共同尺度下的潛在相對搜尋訊號。方法依序結合：（一）可預先註冊的平衡重複取得實驗與 protocol hash；（二）使用所有重疊區間的全域圖形加權最小平方法，以避免 sequential stitching 的誤差累積；（三）完整保留 exact duplicates，並以去除共同訊號後的殘差建立 near-duplicate dependence graph；（四）將 historical date、collection day、collection stream 與 technical replicate 視為交叉 facets 的 Generalizability Theory；（五）以誤差共變異數調整的 GLS／穩定化最小變異凸組合重建日頻共識；（六）以週頻與月頻資料進行二次規劃式 temporal benchmarking；（七）分離 detection、level 與 daily-innovation reliability；以及（八）將日頻 GT 的測量不確定性傳遞至下游 reliability-corrected OLS 與 SIMEX。
 
-本文給出識別條件、無偏性與最小變異性之條件式證明、完整 decision tree，以及 Python 套件實作。20 次受控 Monte Carlo 顯示，在本文設定的資料生成過程中，\RACER 的平均 RMSE 為 3.5265，低於單一 pull 的 7.2305、跨 pull 中位數的 4.1710 與簡單平均的 3.7253。這些結果支持該框架能在特定條件下降低重建均方誤差，但不構成對所有關鍵字、地區與 GT 版本的普遍最優保證。
+本文給出識別條件、無偏性與最小變異性之條件式證明、完整 decision tree，以及 Python 套件實作。20 次受控 Monte Carlo 在對齊資訊集後給出混合結果：跨 pull 聚合使平均 RMSE 由單一 pull 的 7.3519 降至 3.7421（降低 49.1\%，20 次重複全部改善），相對跨 pull 中位數的 4.1710 亦降低 10.3\%；temporal benchmarking 在估計量固定時另貢獻約 0.22 的 RMSE 降低（$p\approx3\times10^{-12}$）。但共變異數調整加權相對簡單平均（3.7253）並無可偵測的優勢（$-0.0167$，$p=0.152$）。本文據實報告此一負面結果，並說明其可能原因：該 DGP 的跨 pull 依賴結構高度同質，而 GLS 相對等權平均的理論優勢需要依賴強度在 pulls 之間異質才會顯現。這些結果不構成對所有關鍵字、地區與 GT 版本的普遍最優保證。
 
 \noindent\textbf{關鍵詞：}Google Trends；投資人注意力；測量誤差；實驗設計；Generalizability Theory；圖形校準；GLS；temporal benchmarking；SIMEX
 \end{abstract}
@@ -44,7 +44,7 @@ Google Trends（GT）已廣泛用作投資人注意力、資訊需求與情緒�
 
 \section{研究問題與方法論動機}
 
-Google Trends 將搜尋活動轉化為相對搜尋興趣（relative search interest）指標，因其即時性與高頻特性，已被財金研究用來衡量投資人注意力、資訊需求與恐慌情緒，例如 Da, Engelberg, and Gao（2011, 2015）以及後續的報酬、波動與交易量研究。這類資料的經濟直覺很清楚：投資人未必進行交易，但通常會在形成交易意圖或受到市場事件刺激時先搜尋資訊。因此，搜尋活動可補足交易資料只記錄已實現行為的限制。
+Google Trends 將搜尋活動轉化為相對搜尋興趣（relative search interest）指標，因其即時性與高頻特性，已被財金研究用來衡量投資人注意力、資訊需求與恐慌情緒，例如 Da, Engelberg, and Gao（2011, 2015）\cite{da2011,da2015} 以及後續的報酬、波動與交易量研究 \cite{choivarian2012,preis2013}。Ben-Rephael, Da, and Israelsen（2017）\cite{benrephael2017} 進一步指出，不同來源的注意力代理變數並不等價，這使 GT 本身的測量性質更值得單獨檢視。這類資料的經濟直覺很清楚：投資人未必進行交易，但通常會在形成交易意圖或受到市場事件刺激時先搜尋資訊。因此，搜尋活動可補足交易資料只記錄已實現行為的限制。
 
 然而，GT 的便利性也容易掩蓋其測量結構。Google 官方說明指出，Trends 使用搜尋活動的樣本，將資料依時間與地區正規化，再縮放至 0--100；低搜尋量可能呈現為零。網站版每一次請求均在該次請求的範圍內重新縮放，而 2025 年公布的 API alpha 雖提供跨請求一致尺度，歷史範圍仍為滾動約 1,800 天，且數值仍不是絕對搜尋次數 \cite{googlefaq,googleapi2025}。因此，若研究期橫跨 2010--2026 年，網站版資料通常仍需切成多個短視窗後重建。
 
@@ -274,7 +274,7 @@ r_{jkt}=\log Y_{jt}-\log Y_{kt}
 \end{equation}
 且 $\nu_{jkt}=\epsilon_{jt}-\epsilon_{kt}$。
 
-由於零值不能取 log，且接近零的整數 RSV 會放大 ratio noise，RACER-GT 僅使用兩邊皆高於預先指定門檻 $c_{\min}$ 的 overlap cells 估計 edge；零值仍保留於最終數列與 detection reliability，不會被任意插補為正值。
+由於零值不能取 log，且接近零的整數 RSV 會放大 ratio noise，RACER-GT 僅使用兩邊皆高於預先指定門檻 $c_{\min}$ 的 overlap cells 估計 edge。零值本身不被插補為正值，但必須說明聚合階段的實際行為：當某一歷史日被多個 chunks 覆蓋、其中一部分回傳 0 而另一部分回傳正值時，下節的加權聚合結果為正值，因此該日在最終數列中不再是零。只有\emph{所有}覆蓋該日的 chunks 都為 0 時，零值才會保留。這是聚合規則的推論，不是插補決策，但它改變了 detection reliability 所量測的對象，故 \texttt{CalibrationResult.diagnostics} 另行輸出 \texttt{n\_dates\_with\_zero\_chunk} 與 \texttt{n\_dates\_zero\_masked\_by\_aggregation} 供稽核。對高 zero-share 的關鍵字，應同時檢視這兩個數字，或改採較廣的 Topic 與較低頻率。
 
 \subsection{Robust edge estimation}
 
@@ -292,7 +292,7 @@ r_{jkt}=\log Y_{jt}-\log Y_{kt}
 c|u|-\frac{1}{2}c^2, & |u|>c.
 \end{cases}
 \end{equation}
-這使極端 overlap cells 不至於完全決定尺度比。套件同時估計 robust scale 與 location variance $\widehat v_{jk}$，形成 edge weight $w_{jk}=1/\max(\widehat v_{jk},v_{\min})$。
+這使極端 overlap cells 不至於完全決定尺度比。套件同時估計 robust scale 與 location variance $\widehat v_{jk}$，形成 edge weight $w_{jk}=\min\{1/\max(\widehat v_{jk},v_{\min}),\,w_{\max}\}$。變異數下界 $v_{\min}$ 與權重上界 $w_{\max}$ 都是數值防護而非古典 M-estimation 理論的一部分：兩者共同限制任一 edge 對全域解的影響力，因為恰好只有 $m_{\min}$ 天且數值幾乎相同的 edge 會產生假性偏小的變異數。實作採用的 $\widehat v_{jk}$ 是 Huber 權重的有效樣本數版本，與教科書漸近式的差異詳見數學附錄。
 
 \subsection{Graph WLS 識別與估計}
 
@@ -423,7 +423,7 @@ RACER-GT 對三種轉換分別執行 G-study：
 +\frac{\sigma_E^2}{n_Dn_Sn_R}.
 \label{eq:relativeerror}
 \end{equation}
-Generalizability coefficient 為
+Generalizability coefficient \cite{shavelson1991} 為
 \begin{equation}
 G(n_D,n_S,n_R)
 =\frac{\sigma_T^2}{\sigma_T^2+\sigma_\delta^2}.
@@ -462,7 +462,7 @@ G(n_D,n_S,n_R)
 \begin{equation}
 \widehat\sigma_{TDS}^2=MS_{TDS}-MS_E/R.
 \end{equation}
-若 $R=1$，$E$ 無法分離，實作將不可分部分歸入 $TDS$。負的 method-of-moments components 可報告原值並依 protocol 選擇截為零；正式推論應另用 REML sensitivity analysis。由於 historical dates 具時間相依，係數信賴區間採 moving-block bootstrap，而非把 $T$ 天當成獨立單位。
+若 $R=1$，$E$ 無法分離，實作將不可分部分歸入 $TDS$。負的 method-of-moments components 可報告原值並依 protocol 選擇截為零 \cite{searle1992}；正式推論應另用 REML sensitivity analysis。由於 historical dates 具時間相依，係數信賴區間採 moving-block bootstrap，而非把 $T$ 天當成獨立單位。
 
 D-study 將\cref{eq:gcoef,eq:phicoef}代入不同的 $(n_D,n_S,n_R)$，直接回答「下一筆資源應投入增加日期、streams 或 technical replicates」。因此 nominal pull count 不是充分的停止規則。
 
@@ -470,7 +470,7 @@ D-study 將\cref{eq:gcoef,eq:phicoef}代入不同的 $(n_D,n_S,n_R)$，直接回
 
 \subsection{Measurement model}
 
-將每一個 calibrated unique pull 在相同基準期重新設為平均 100，並移除 pull-specific additive bias 後，對歷史日 $t$ 寫成
+將每一個 calibrated unique pull 在相同基準期重新設為平均 100 後，對歷史日 $t$ 寫成
 \begin{equation}
 \bm Z_t=\one X_t+\bm e_t,
 \qquad \E(\bm e_t)=\bm 0,
@@ -478,6 +478,29 @@ D-study 將\cref{eq:gcoef,eq:phicoef}代入不同的 $(n_D,n_S,n_R)$，直接回
 \label{eq:consensusmodel}
 \end{equation}
 $\bm Z_t$ 為 $m\times1$ vector。Near duplicates 對應 $\Sigma$ 中較高的 off-diagonal covariance；因此它們不應被簡單計為多份獨立 evidence。
+
+\begin{remark}[從 $\theta_t$ 到 $X_t$ 的橋接假設]
+\label{rem:bridge}
+命題 2.3 與 2.4 的 estimand 是 GT 設計期望 $\theta_t(Q;\mathcal{R})$，而\cref{eq:consensusmodel}的 estimand 是共同尺度潛在訊號 $X_t$。兩者不是同一個量，其連結需要兩個必須明示的條件。
+
+第一是\textbf{比例性}：存在與 $t$ 無關的 $c>0$ 使 $\theta_t=cX_t$，亦即在固定 protocol 下 GT 的期望回傳值與潛在相對訊號成比例。這排除了隨時間變動的系統性演算法偏誤，而該假設不可由重複量測本身檢驗（見第 14.1 節的 common-mode bias）。
+
+第二是\textbf{校準誤差可忽略}：$Z_{it}=Y_{it}\exp(-\widehat\ell_{j(i)})$ 涉及估計量的非線性變換，一般而言 $\E[Y\exp(-\widehat\ell)]\neq a^{-1}\E[Y]$，因為 $\exp(\cdot)$ 為凸函數且 $\widehat\ell$ 帶估計誤差。\cref{eq:lognormalcorrection}的一階修正使 $\E[\exp(-\widehat\ell_j)]=a_j^{-1}\{1+O(n^{-1})\}$，其中 $n$ 為該 chunk 可用的重疊日數。因此\cref{eq:consensusmodel}的 $\E(\bm e_t)=\bm 0$ 是 $O(n^{-1})$ 意義下的近似，不是精確結果。
+
+命題 7.1 的無偏性與最小變異性應在這兩個條件下閱讀。本文不宣稱它們可由資料驗證：前者需要外部效標，後者隨重疊設計加密而改善。
+\end{remark}
+
+\begin{remark}[為何預設不移除 pull-specific additive bias]
+\label{rem:centring}
+1.0.0 版預設在此處對每個 pull 減去 $b_i=T^{-1}\sum_t(Z_{it}-m_t)$，其中 $m_t$ 為逐日中位數。但基準期重設已使每個 pull 滿足 $T^{-1}\sum_t Z_{it}=100$；當基準期等於歷史全區間（\texttt{QuerySpec} 的預設回填）時，
+\begin{equation}
+b_i=100-\frac{1}{T}\sum_t m_t
+\label{eq:constantshift}
+\end{equation}
+對所有 $i$ \emph{相同}。該步驟因此不移除任何 pull 之間的相對差異，只是把整條共識序列平移「平均數與中位數之差」，並直接違反\cref{eq:consensusmodel}的 $\E(\bm e_t)=\bm 0$。在受控模擬中它使 mean bias 由機器精度惡化為 $-0.1464$，且 20 次重複的 RMSE 全部劣化。
+
+1.1.0 版將 \texttt{center\_pull\_bias} 預設改為關閉，並在 diagnostics 輸出 \texttt{pull\_bias\_cross\_pull\_sd}——該值接近零即表示 centring 項不帶任何 pull-specific 資訊——使此退化情形保持可稽核。僅在關閉 baseline rescale 且確實預期存在加法性 pull offset 時，才應啟用該選項。
+\end{remark}
 
 考慮線性共識 $\widehat X_t=\bm w'\bm Z_t$。若 $\one'\bm w=1$，則
 \begin{equation}
@@ -528,9 +551,11 @@ m_{\mathrm{eff}}^{\mathrm{spectral}}
 =\frac{\tr(R_e)^2}{\tr(R_e^2)}.
 \label{eq:spectraleff}
 \end{equation}
-當 residuals 相互獨立，$R_e=I_m$，故 $m_{\mathrm{eff}}=m$；當所有 residuals 完全共線，只有一個非零 eigenvalue，$m_{\mathrm{eff}}=1$。此量是資訊濃度診斷，不是對 proprietary sampling mechanism 的正式獨立樣本數證明。
+當所有 residuals 完全共線，只有一個非零 eigenvalue，$m_{\mathrm{eff}}=1$；當 residuals 相互獨立，$R_e$ 趨近 $I_m$ 而 $m_{\mathrm{eff}}$ 趨近 $m$。
 
-另報告 Kish weight count
+此處須注意一個實作層面的偏誤：\cref{eq:residualduplicate} 的殘差是各 pull 減去\emph{由它們自己構成}的逐日中位數，此運算必然在殘差間引入負相關，因此即使原始 pulls 完全獨立，$R_e$ 也不會恰好是單位矩陣。以構造上獨立的序列模擬，$m=9$ 時 $m_{\mathrm{eff}}$ 平均約 8.57（低估 4.8\%），$m=3$ 時約 2.59（低估 13.7\%）。偏誤方向是保守的——傾向低估資訊量因而傾向拒絕，而非誤放行——但這表示 \texttt{min\_spectral\_effective\_pulls} 門檻的實際嚴格度略高於其名目值，在小型設計上尤然。此量是資訊濃度診斷，不是對 proprietary sampling mechanism 的正式獨立樣本數證明。
+
+另報告 Kish weight count \cite{kish1965}
 \begin{equation}
 m_{\mathrm{eff}}^{\mathrm{Kish}}=\frac{1}{\sum_i w_i^2},
 \end{equation}
@@ -550,9 +575,11 @@ RACER-GT 的 soft benchmarking estimator 定義為
 \end{equation}
 其中
 \begin{equation}
-Q=\lambda_I I+\lambda_D D_1'D_1+\lambda_R I,
+Q=(\lambda_I+\lambda_R)I+\lambda_D D_1'D_1,
 \end{equation}
-$D_1$ 是 first-difference matrix；$\lambda_I$ 控制對 preliminary signal 的忠實度，$\lambda_D$ 控制修正路徑的粗糙度，$W$ 通常由 benchmark standard errors 的倒數平方組成。
+$D_1$ 是 first-difference matrix；此問題屬於 benchmarking 文獻中 movement-preservation 一族 \cite{denton1971,chowlin1971,dagum2006}。$\lambda_I$ 控制對 preliminary signal 的忠實度；$\lambda_R$ 是實作中獨立設定的 ridge，其唯一作用是在 $\lambda_I=0$ 時仍保證 $Q$ 正定，因此兩者在數學上合併為單一係數；$\lambda_D$ 控制修正路徑的粗糙度，$W$ 通常由 benchmark standard errors 的倒數平方組成。
+
+一階差分懲罰的是修正路徑的斜率而非其曲率。預設的 $\lambda_D/\lambda_I=10$ 是一個相當強的平滑先驗，會使修正趨向低頻調整，在事件日附近可能系統性削弱日頻形狀——而事件日正是注意力指標最有研究價值的部分。此比值應在 pilot 階段校準並鎖定，正式研究亦應報告 $\lambda_D/\lambda_I\in\{1,10,100\}$ 的敏感度。
 
 \begin{proposition}[Soft benchmark 的唯一解]
 若 $Q$ 正定且 $W$ 半正定，\cref{eq:softbenchmark}嚴格凸，唯一解為
@@ -592,7 +619,7 @@ Soft mode 更適合 GT benchmark 本身也有 sampling variation 的情況；exa
 
 \subsection{Detection、level 與 innovation}
 
-RACER-GT 不以一個單一相關係數概括資料品質。Detection reliability 包括 zero/nonzero agreement、positive-day Jaccard 與 Fleiss' $\kappa$；當所有觀察都屬同一類別時，$\kappa$ 不可識別，此規則標記為 not applicable，而非錯誤判 FAIL。Level reliability 包括 Pearson、Spearman、MAE/100、G 與 $\Phi$；innovation reliability 則對 $\Delta\log(1+Y)$ 計算 correlation、sign／peak overlap 與 G-study。
+RACER-GT 不以一個單一相關係數概括資料品質。Detection reliability 包括 zero/nonzero agreement、positive-day Jaccard 與 Fleiss' $\kappa$ \cite{fleiss1971}；當所有觀察都屬同一類別時，$\kappa$ 不可識別，此規則標記為 not applicable，而非錯誤判 FAIL。Level reliability 包括 Pearson、Spearman、MAE/100、G 與 $\Phi$；innovation reliability 則對 $\Delta\log(1+Y)$ 計算 correlation、sign／peak overlap 與 G-study。
 
 Exact-cell agreement 必須與 zero share 一起解讀。兩條低量序列若多數日都為零，可能得到很高 exact agreement，卻沒有足夠正值資訊；因此 decision tree 另設 maximum zero share，並檢查 positive Jaccard。
 
@@ -647,11 +674,11 @@ W_t=X_t+u_t,
 {W'M_CW-\tr(M_C\widehat\Omega_u)}.
 \label{eq:rcestimator}
 \end{equation}
-RACER-GT 使用每日 consensus standard error 的平方形成 diagonal $\widehat\Omega_u$，並以 Newey--West long-run variance 對 scalar moment 提供 HAC standard error。若修正後分母非正，套件拒絕估計，因為在該假設下 latent predictor variation 不足以識別 $\beta$。
+RACER-GT 使用每日 consensus standard error 的平方形成 diagonal $\widehat\Omega_u$，並以 Newey--West long-run variance \cite{neweywest1987} 對 scalar moment 提供 HAC standard error。若修正後分母非正，套件拒絕估計，因為在該假設下 latent predictor variation 不足以識別 $\beta$。
 
 \subsection{SIMEX}
 
-當誤差標準差可估計但解析修正不穩定時，SIMEX \cite{cookstefanski1994} 對 $\lambda\ge0$ 人工加入
+當誤差標準差可估計但解析修正不穩定時，SIMEX \cite{cookstefanski1994,stefanskicook1995,carroll2006} 對 $\lambda\ge0$ 人工加入
 \begin{equation}
 W_t^{(b,\lambda)}=W_t+\sqrt{\lambda}\,\widehat\sigma_{u,t}\xi_t^{(b)},
 \qquad \xi_t^{(b)}\sim N(0,1),
@@ -775,41 +802,88 @@ L_t=&\ 30+0.004t+2.5\sin(2\pi t/7)
 
 Monte Carlo 使用 2024 年 366 個日資料、三個 collection days（0、1、7）、三 streams、120-day chunks、30-day steps，共 20 次 replications，seeds 1200--1219。這是程式驗證 DGP，不是對 Google proprietary mechanism 的宣稱。
 
+\subsection{比較設計：資訊集必須對齊}
+
+\texttt{PipelineResult.final\_series} 在 benchmark 可用時回傳 benchmark 後的序列。若以該序列與「未接受 benchmark 的跨 pull 基準」相比，比較的就不是四個估計量，而是三個估計量與一個估計量加上一組額外的低頻資訊——尤其在模擬中，benchmark 由 latent truth 的期間平均加白噪音生成，資訊量極高。
+
+因此每個估計量都在兩個資訊集下各評估一次：僅使用校準後的 complete pulls，以及套用\emph{完全相同}的週頻與月頻 benchmark。single pull 一列報告的是所有 pull 各自表現的平均，而非固定取某一個 pull，因為後者代表「恰好取到那一個 pull」而非「只下載一次的期望表現」。
+
 \subsection{結果}
 
 \begin{table}[H]
 \centering
-\caption{20 次受控 Monte Carlo 結果}
+\small
+\caption{20 次受控 Monte Carlo 結果（seeds 1200--1219）。MCSE 為平均 RMSE 的 Monte Carlo 標準誤。}
 \label{tab:mc}
-\begin{tabular}{lrrrrr}
+\begin{tabular}{llrrrrrr}
 \toprule
-Estimator & Mean bias & Mean MAE & Mean RMSE & Corr. & Innovation corr.\\
+Estimator & Benchmark & RMSE & MCSE & MAE & Bias & Corr. & Innov. corr.\\
 \midrule
-Single pull & 0.0000 & 5.6452 & 7.2305 & 0.9695 & 0.8869\\
-Cross-pull median & -0.1464 & 3.1973 & 4.1710 & 0.9898 & 0.9556\\
-Simple mean & 0.0000 & 2.8660 & 3.7253 & 0.9919 & 0.9747\\
-RACER-GT & -0.1317 & 2.7017 & 3.5265 & 0.9927 & 0.9745\\
+Single pull & 無 & 7.3519 & 0.0573 & 5.6770 & $-0.0000$ & 0.9688 & 0.8878\\
+Cross-pull median & 無 & 4.1710 & 0.0819 & 3.1973 & $-0.1464$ & 0.9898 & 0.9556\\
+Simple mean & 無 & \textbf{3.7253} & 0.0877 & 2.8660 & $-0.0000$ & 0.9919 & \textbf{0.9747}\\
+\RACER & 無 & 3.7421 & 0.0894 & 2.8723 & $+0.0000$ & 0.9918 & 0.9743\\
+\midrule
+Single pull & 有 & 6.9881 & 0.0491 & 5.3877 & $-0.0041$ & 0.9717 & 0.8882\\
+Cross-pull median & 有 & 3.9584 & 0.0695 & 3.0283 & $-0.1311$ & 0.9908 & 0.9558\\
+Simple mean & 有 & \textbf{3.5058} & 0.0754 & 2.6889 & $-0.0041$ & \textbf{0.9928} & \textbf{0.9748}\\
+\RACER & 有 & 3.5226 & 0.0770 & 2.6959 & $-0.0041$ & 0.9927 & 0.9745\\
 \bottomrule
 \end{tabular}
 \end{table}
 
-相較 single pull，RACER-GT 的 mean RMSE 降低
+\begin{table}[H]
+\centering
+\small
+\caption{配對比較。差值為估計量 B 減估計量 A 的 RMSE，正值表示 A 較優；$n=20$ 配對。}
+\label{tab:mcpaired}
+\begin{tabular}{llrrrl}
+\toprule
+估計量 A & 估計量 B & 差值 & $t$ & $p$ & A 勝場\\
+\midrule
+\RACER & Single pull & $+3.6098$ & $48.31$ & $2.4\times10^{-21}$ & 20/20\\
+\RACER & Cross-pull median & $+0.4289$ & $14.86$ & $6.5\times10^{-12}$ & 20/20\\
+\RACER & Simple mean & $-0.0167$ & $-1.49$ & $0.152$ & 7/20\\
+\RACER（有 bm.） & Simple mean（有 bm.） & $-0.0168$ & $-1.65$ & $0.116$ & 7/20\\
+\RACER（有 bm.） & \RACER（無 bm.） & $+0.2194$ & $15.49$ & $3.1\times10^{-12}$ & 20/20\\
+Simple mean（有 bm.） & Simple mean（無 bm.） & $+0.2195$ & $15.45$ & $3.3\times10^{-12}$ & 20/20\\
+\bottomrule
+\end{tabular}
+\end{table}
+
+由\cref{tab:mc,tab:mcpaired}可得三項結論，其中兩項支持本框架，一項不支持。
+
+第一，\textbf{跨 pull 聚合的價值大且穩健}。在同一資訊集下，\RACER 相對單一 pull 的 RMSE 降低
 \begin{equation}
-1-\frac{3.5265}{7.2305}=51.2\%.
+1-\frac{3.7421}{7.3519}=49.1\%,
 \end{equation}
-相較 simple mean 降低約 5.3\%。RACER-GT 的 level correlation 最高，但 innovation correlation 與 simple mean 幾乎相同，且 simple mean 的 mean bias 接近零，主要是所有方法都以全期平均 100 正規化。這說明 RACER-GT 的優勢主要表現在跨時間點的均方重建誤差與 level fidelity，不應誇大為每一指標均嚴格支配所有基準。
+20 次重複全部改善（配對 $t=48.3$）。相對 cross-pull median 亦降低 10.3\%，同樣 20 次全勝。這回答了本文的核心動機問題：只下載一次確實不夠。
+
+第二，\textbf{共變異數調整加權相對簡單平均，在本 DGP 下沒有可偵測的優勢}。兩者相差 $-0.0167$（$p=0.152$，20 次中 \RACER 僅勝 7 次），加入 benchmark 後結論不變（$-0.0168$，$p=0.116$）。本文不宣稱 GLS 權重在此情境下較優。
+
+第三，\textbf{temporal benchmarking 有獨立且顯著的貢獻}。在估計量固定時，加入週／月頻 benchmark 使 RMSE 降低約 $0.22$（$p\approx3\times10^{-12}$，20 次全勝），且對 \RACER 與 simple mean 的效果幾乎相同（$0.2194$ 對 $0.2195$）。頻率一致化的收益來自 benchmark 本身，而非它與哪一個日頻估計量搭配。
+
+\begin{remark}[為何仍保留共變異數調整的 consensus]
+第二點是負面結果，但它界定的是適用範圍，不是對方法的否定。本模擬的跨 pull 依賴結構高度\emph{同質}：所有 pull 以固定權重 0.5 共享同一 collection-day 噪音，因此殘差共變異數矩陣近乎等相關，而等相關矩陣的最小變異權重本來就是等權。GLS 相對等權平均的理論優勢，需要依賴強度在 pulls 之間\emph{不同}才會顯現——例如部分 pull 來自同一 cache 而其餘不是。辨識這一點需要在依賴異質性維度上變動的 factorial 模擬，本版本尚未提供。
+
+此外，simple mean 無法提供 \RACER 一併輸出的東西：spectral 與 Kish 有效 pull 數、near-duplicate 依賴結構、每日條件標準誤，以及可傳遞至下游 EIV 修正的測量不確定性。在本 DGP 下這些診斷沒有轉化為更低的 RMSE，但它們正是判斷「這批資料是否可用」所需的量，而 RMSE 本身無法回答該問題。
+\end{remark}
+
+\begin{remark}[偏誤欄的解讀]
+Single pull 與 simple mean 的 mean bias 是 $10^{-15}$ 量級，這是\emph{恆等式}而非估計性質：每個 complete pull 都被正規化為基準期平均 100，而真值亦以同一基準期平均 100 定義，故其平均必然無偏。\RACER 的偏誤同樣落在機器精度內（$+3.2\times10^{-17}$）。Cross-pull median 的 $-0.1464$ 則是真實的：逐日中位數在右偏分布下系統性低於平均數，而本 DGP 含六個事件尖峰。
+\end{remark}
 
 \begin{figure}[H]
 \centering
-\includegraphics[width=0.78\textwidth]{figures/monte_carlo_rmse.pdf}
-\caption{不同重建方法的平均 RMSE。}
+\includegraphics[width=0.85\textwidth]{figures/monte_carlo_rmse.pdf}
+\caption{各估計量在兩個資訊集下的平均 RMSE，誤差棒為 Monte Carlo 標準誤。同一估計量兩根柱體的差距即 temporal benchmarking 的貢獻。}
 \label{fig:mcrmse}
 \end{figure}
 
 \begin{figure}[H]
 \centering
-\includegraphics[width=0.82\textwidth]{figures/monte_carlo_signal.pdf}
-\caption{Level correlation、innovation correlation 與 top-5\% peak recall。}
+\includegraphics[width=0.95\textwidth]{figures/monte_carlo_signal.pdf}
+\caption{Level correlation、innovation correlation 與 top-5\% peak recall。三項指標上 \RACER 與 simple mean 實質相同，與\cref{tab:mcpaired}的檢定結果一致。}
 \label{fig:mcsignal}
 \end{figure}
 
@@ -886,7 +960,9 @@ RACER-GT 並非取代既有研究，而是把其可互補部分放入同一個�
 不以 IP 取代獨立性證明；不以多數決刪除不一致 pulls；不以單一相關係數代表可靠度；不把通過資料品質決策誤稱為 construct validity；也不在下游模型中假裝建構後的 GT 沒有測量誤差。
 \end{quote}
 
-在明列假設下，全域 overlap-graph WLS 可識別相對 chunk scales；G-theory 可量化 collection day、stream 與其交互作用；GLS 可依 residual covariance 將高度相依 pulls 自動降權；temporal benchmarking 可使日頻形狀與較低頻率尺度相容；EIV correction 則能處理 GT 作為解釋變數時的 attenuation。受控模擬顯示完整方法在本文 DGP 中相較單一 pull 與簡單聚合降低 RMSE，但真正的研究價值不只是較小的某一個誤差數字，而是一套可以預先註冊、稽核、重現、否決自身資料，並誠實傳遞不確定性的測量制度。
+在明列假設下，全域 overlap-graph WLS 可識別相對 chunk scales；G-theory 可量化 collection day、stream 與其交互作用；GLS 可依 residual covariance 將高度相依 pulls 自動降權；temporal benchmarking 可使日頻形狀與較低頻率尺度相容；EIV correction 則能處理 GT 作為解釋變數時的 attenuation。
+
+受控模擬給出的是混合結果：在本文 DGP 中，跨 pull 聚合（相對單一 pull 降低 49.1\%）與 temporal benchmarking（另降低約 0.22）都有大且穩健的貢獻，而共變異數調整加權相對簡單平均則沒有可偵測的優勢。本文選擇完整報告這個負面結果，而不是只呈現有利的比較——這正是全文立場的具體實踐：研究價值不在於某一個較小的誤差數字，而在於一套可以預先註冊、稽核、重現、否決自身資料，並誠實傳遞不確定性（包含對自己不利的證據）的測量制度。一個只會產出好看數字的測量流程，無法告訴研究者何時不該相信它。
 
 \appendix
 
@@ -936,6 +1012,12 @@ python examples/run_monte_carlo.py
 
 \begin{thebibliography}{99}
 
+\bibitem{benrephael2017}
+Ben-Rephael, A., Da, Z., \& Israelsen, R. D. (2017).
+It depends on where you search: Institutional investor attention and underreaction to news.
+\textit{The Review of Financial Studies, 30}(9), 3009--3047.
+\url{https://doi.org/10.1093/rfs/hhx031}
+
 \bibitem{bleher2022}
 Bleher, J., \& Dimpfl, T. (2022).
 Knitting multi-annual high-frequency Google Trends to predict inflation and consumption.
@@ -947,11 +1029,28 @@ Brennan, R. L. (2001).
 \textit{Generalizability Theory}.
 Springer.
 
+\bibitem{carroll2006}
+Carroll, R. J., Ruppert, D., Stefanski, L. A., \& Crainiceanu, C. M. (2006).
+\textit{Measurement Error in Nonlinear Models: A Modern Perspective} (2nd ed.).
+Chapman and Hall/CRC.
+
 \bibitem{cebrian2024}
 Cebrián, E., \& Domenech, J. (2024).
 Addressing Google Trends inconsistencies.
 \textit{Technological Forecasting and Social Change, 202}, 123318.
 \url{https://doi.org/10.1016/j.techfore.2024.123318}
+
+\bibitem{choivarian2012}
+Choi, H., \& Varian, H. (2012).
+Predicting the present with Google Trends.
+\textit{Economic Record, 88}(s1), 2--9.
+\url{https://doi.org/10.1111/j.1475-4932.2012.00809.x}
+
+\bibitem{chowlin1971}
+Chow, G. C., \& Lin, A. (1971).
+Best linear unbiased interpolation, distribution, and extrapolation of time series by related series.
+\textit{The Review of Economics and Statistics, 53}(4), 372--375.
+\url{https://doi.org/10.2307/1928739}
 
 \bibitem{cookstefanski1994}
 Cook, J. R., \& Stefanski, L. A. (1994).
@@ -976,6 +1075,11 @@ The sum of all FEARS: Investor sentiment and asset prices.
 \textit{The Review of Financial Studies, 28}(1), 1--32.
 \url{https://doi.org/10.1093/rfs/hhu072}
 
+\bibitem{dagum2006}
+Dagum, E. B., \& Cholette, P. A. (2006).
+\textit{Benchmarking, Temporal Distribution, and Reconciliation Methods for Time Series}.
+Springer.
+
 \bibitem{denton1971}
 Denton, F. T. (1971).
 Adjustment of monthly or quarterly series to annual totals: An approach based on quadratic minimization.
@@ -987,6 +1091,12 @@ Eichenauer, V. Z., Indergand, R., Martínez, I. Z., \& Sax, C. (2022).
 Obtaining consistent time series from Google Trends.
 \textit{Economic Inquiry, 60}(2), 694--705.
 \url{https://doi.org/10.1111/ecin.13049}
+
+\bibitem{fleiss1971}
+Fleiss, J. L. (1971).
+Measuring nominal scale agreement among many raters.
+\textit{Psychological Bulletin, 76}(5), 378--382.
+\url{https://doi.org/10.1037/h0031619}
 
 \bibitem{fuller1987}
 Fuller, W. A. (1987).
@@ -1014,6 +1124,11 @@ Robust estimation of a location parameter.
 \textit{The Annals of Mathematical Statistics, 35}(1), 73--101.
 \url{https://doi.org/10.1214/aoms/1177703732}
 
+\bibitem{kish1965}
+Kish, L. (1965).
+\textit{Survey Sampling}.
+Wiley.
+
 \bibitem{ledoitwolf2004}
 Ledoit, O., \& Wolf, M. (2004).
 A well-conditioned estimator for large-dimensional covariance matrices.
@@ -1025,6 +1140,34 @@ Medeiros, M. C., \& Pires, H. F. (2021).
 The proper use of Google Trends in forecasting models.
 \textit{arXiv:2104.03065}.
 \url{https://doi.org/10.48550/arXiv.2104.03065}
+
+\bibitem{neweywest1987}
+Newey, W. K., \& West, K. D. (1987).
+A simple, positive semi-definite, heteroskedasticity and autocorrelation consistent covariance matrix.
+\textit{Econometrica, 55}(3), 703--708.
+\url{https://doi.org/10.2307/1913610}
+
+\bibitem{preis2013}
+Preis, T., Moat, H. S., \& Stanley, H. E. (2013).
+Quantifying trading behavior in financial markets using Google Trends.
+\textit{Scientific Reports, 3}, 1684.
+\url{https://doi.org/10.1038/srep01684}
+
+\bibitem{searle1992}
+Searle, S. R., Casella, G., \& McCulloch, C. E. (1992).
+\textit{Variance Components}.
+Wiley.
+
+\bibitem{shavelson1991}
+Shavelson, R. J., \& Webb, N. M. (1991).
+\textit{Generalizability Theory: A Primer}.
+Sage.
+
+\bibitem{stefanskicook1995}
+Stefanski, L. A., \& Cook, J. R. (1995).
+Simulation-extrapolation: The measurement error jackknife.
+\textit{Journal of the American Statistical Association, 90}(432), 1247--1256.
+\url{https://doi.org/10.1080/01621459.1995.10476629}
 
 \bibitem{west2020}
 West, R. (2020).
