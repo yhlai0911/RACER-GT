@@ -138,14 +138,38 @@ def simulate_racergt_data(
         )
         pull_latent[row.pull_id] = latent * np.exp(log_error)
 
-    # Copy a fraction of entire latent realizations to emulate exact cache/version duplicates.
-    n_pulls = len(schedule)
+    # Copy a fraction of entire latent realizations to emulate exact cache/version
+    # duplicates. Targets are drawn at random rather than taken from the tail of the
+    # schedule: putting every duplicate in the last collection day would confound
+    # duplication with the design cell, which is exactly the confound the duplicate
+    # diagnostics are meant to detect. A duplicate's source must have been retrieved
+    # earlier, otherwise the cached response does not exist yet and the copy would be
+    # regenerated with fresh chunk noise instead of being byte-identical.
+    all_pulls = schedule["pull_id"].tolist()
+    n_pulls = len(all_pulls)
     n_duplicate = int(np.floor(settings.exact_duplicate_fraction * n_pulls))
-    duplicate_targets = schedule["pull_id"].tolist()[-n_duplicate:] if n_duplicate else []
-    source_candidates = schedule["pull_id"].tolist()[: max(n_pulls - n_duplicate, 1)]
+    positions = {pull_id: index for index, pull_id in enumerate(all_pulls)}
+    eligible_targets = all_pulls[1:]
+    n_duplicate = min(n_duplicate, len(eligible_targets))
+    duplicate_targets = (
+        sorted(
+            rng.choice(eligible_targets, size=n_duplicate, replace=False).tolist(),
+            key=positions.get,
+        )
+        if n_duplicate
+        else []
+    )
+    target_set = set(duplicate_targets)
     duplicate_source: dict[str, str] = {}
     for target in duplicate_targets:
-        source = str(rng.choice(source_candidates))
+        earlier = [
+            pull_id
+            for pull_id in all_pulls
+            if positions[pull_id] < positions[target] and pull_id not in target_set
+        ]
+        if not earlier:
+            continue
+        source = str(rng.choice(earlier))
         duplicate_source[target] = source
         pull_latent[target] = pull_latent[source].copy()
 
@@ -167,8 +191,6 @@ def simulate_racergt_data(
                     observed = np.rint(observed)
                 observed = np.clip(observed, 0.0, 100.0)
                 raw_cache[(pull_row.pull_id, chunk_row.chunk_id)] = observed.copy()
-                if pull_row.pull_id not in duplicate_source:
-                    raw_cache[(pull_row.pull_id, chunk_row.chunk_id)] = observed.copy()
             for date_value, value in zip(chunk_dates, observed, strict=True):
                 raw_rows.append(
                     {
