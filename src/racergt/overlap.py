@@ -257,12 +257,32 @@ class OverlapGraphCalibrator:
                 }
             )
         scales = pd.DataFrame(scale_rows)
+
+        # An overlap whose log ratio has no dispersion carries no information about
+        # the relative scale beyond the single number it reports. On real Google
+        # Trends data this is not a pathology but a routine consequence of the
+        # normalization: each chunk is divided by its own window maximum, so two
+        # windows containing the same peak day are returned as the same integers
+        # wherever they overlap. Such an edge still enters the fit, at whatever
+        # weight edge_variance_floor and max_edge_weight happen to permit, which is
+        # a numerical choice rather than a statistical one. Chunks joined by these
+        # edges form a normalization group whose members share a scale exactly, so
+        # the number of groups, not the number of chunks, bounds how much
+        # independent scale information the pull contains. Reported, not acted on.
+        zero_dispersion = [e for e in edges if e.robust_scale == 0.0]
+        group_graph = nx.Graph()
+        group_graph.add_nodes_from(nodes)
+        group_graph.add_edges_from((e.chunk_i, e.chunk_j) for e in zero_dispersion)
+
         diagnostics = {
             "connected": len(components) == 1,
             "n_components": len(components),
             "component_sizes": sorted((len(c) for c in components), reverse=True),
             "n_nodes": len(nodes),
             "n_edges": len(edges),
+            "n_zero_dispersion_edges": len(zero_dispersion),
+            "n_informative_edges": len(edges) - len(zero_dispersion),
+            "n_scale_groups": nx.number_connected_components(group_graph),
             "reference_chunk": reference,
             "normal_rank": rank,
             "normal_condition_number": condition,
