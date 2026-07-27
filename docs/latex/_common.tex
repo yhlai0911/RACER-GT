@@ -46,6 +46,12 @@
 \setlist[enumerate]{leftmargin=2.2em,itemsep=0.25em,topsep=0.3em}
 
 % ---------------------------------------------------------------- mathematics
+% Paragraphs dense with monospace identifiers cannot always be broken inside the
+% measure, and without a relief valve TeX lets the text run into the margin
+% rather than loosen a line. A last-resort stretch keeps it on the page at the
+% cost of slightly wider interword space on the affected lines only.
+\emergencystretch=3em
+
 \newcommand{\E}{\mathbb{E}}
 \newcommand{\Var}{\operatorname{Var}}
 \newcommand{\Cov}{\operatorname{Cov}}

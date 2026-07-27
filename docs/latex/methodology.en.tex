@@ -458,7 +458,7 @@ of them return zero, the weighted average is positive, so that date is no longer
 zero in the final series. Zeros survive only where every covering chunk is zero.
 That is a corollary of averaging rather than an imputation decision, but it
 changes what detection reliability is measured on, so
-\texttt{CalibrationResult.diagnostics} reports
+\texttt{CalibrationResult.\allowbreak diagnostics} reports
 \texttt{n\_dates\_with\_zero\_chunk} and
 \texttt{n\_dates\_zero\_masked\_by\_aggregation} for audit. \Cref{as:connected} fails if the chunk design leaves a gap; the
 implementation raises an error rather than silently returning a partially
@@ -656,8 +656,8 @@ can show that the estimator solves the problem it was handed, never that the
 problem is the right one. This section runs the calibration stage on real
 downloads --- keyword \texttt{bitcoin}, United States, daily, calendar year 2024,
 eight chunks on 180-day windows with a 30-day step, 1{,}440 observations. The
-converter is \texttt{examples/ingest\_trends\_csv.py} and the analysis is
-\texttt{examples/run\_real\_data\_calibration.py}.
+converter is \texttt{examples/\allowbreak ingest\_\allowbreak trends\_\allowbreak csv.py} and the analysis is
+\texttt{examples/\allowbreak run\_\allowbreak real\_\allowbreak data\_\allowbreak calibration.py}.
 
 \textbf{What this data cannot test, stated first.} It is a \emph{single pull}:
 one collection day, one stream, one replicate. Every cross-pull mechanism is
@@ -682,17 +682,17 @@ is identically zero with no dispersion: the eight chunks form only \textbf{four
 normalization groups}.
 
 Such an edge carries no scale information, yet it still enters the weighted
-least-squares fit at whatever weight \texttt{edge\_variance\_floor} and
-\texttt{max\_edge\_weight} permit --- numerical safety constants, not a
-statistical argument. \texttt{simulate\_racergt\_data} multiplies every chunk by
+least-squares fit at whatever weight \texttt{edge\_\allowbreak variance\_\allowbreak floor} and
+\texttt{max\_\allowbreak edge\_\allowbreak weight} permit --- numerical safety constants, not a
+statistical argument. \texttt{simulate\_\allowbreak racergt\_\allowbreak data} multiplies every chunk by
 continuous lognormal noise \emph{before} taking the window maximum, and at its
 default settings the chance that two chunks round to identical integers
 throughout an overlap is negligible: zero degenerate edges in 520 simulated,
-against 5 in 26 real ones. (Setting \texttt{chunk\_noise\_sd} to $0$ would let the
+against 5 in 26 real ones. (Setting \texttt{chunk\_\allowbreak noise\_\allowbreak sd} to $0$ would let the
 simulator produce them, but that is neither its default nor the setting under
 which the earlier evidence was generated.) Version 1.4.0 therefore adds
-\texttt{n\_zero\_dispersion\_edges}, \texttt{n\_informative\_edges} and
-\texttt{n\_scale\_groups} to \texttt{CalibrationResult.diagnostics}. They
+\texttt{n\_\allowbreak zero\_\allowbreak dispersion\_\allowbreak edges}, \texttt{n\_\allowbreak informative\_\allowbreak edges} and
+\texttt{n\_scale\_groups} to \texttt{CalibrationResult.\allowbreak diagnostics}. They
 \textbf{report only and change no estimate}; what to do about a degenerate edge
 is the analyst's judgment, not the package's.
 
@@ -748,7 +748,7 @@ largest being $-0.032\%$. Real data does not refute the proportionality model.
 \subsubsection{The simulator overstates chunk noise by about 4.5 times}
 
 This data cannot test F1, but it decisively tests something else: whether the
-simulator describes reality. \texttt{SimulationSettings.chunk\_noise\_sd}
+simulator describes reality. \texttt{SimulationSettings.\allowbreak chunk\_\allowbreak noise\_\allowbreak sd}
 defaults to $0.03$, multiplying every chunk on every day by an independent
 lognormal disturbance before the maximum is taken. The real overlaps have a
 median log-ratio dispersion of $0.0188$.
@@ -765,7 +765,7 @@ window maximum, round, and measure dispersion exactly as on the real chunks.
 \begin{table}[H]
 \centering
 \small
-\caption{Sweeping \texttt{chunk\_noise\_sd} against the observed overlap
+\caption{Sweeping \texttt{chunk\_\allowbreak noise\_\allowbreak sd} against the observed overlap
 dispersion of $0.018814$. Two hundred replications per level.}
 \label{tab:chunknoise}
 \begin{tabular}{lrr}

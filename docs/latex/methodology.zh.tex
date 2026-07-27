@@ -283,7 +283,7 @@ r_{jkt}=\log Y_{jt}-\log Y_{kt}
 \end{equation}
 且 $\nu_{jkt}=\epsilon_{jt}-\epsilon_{kt}$。
 
-由於零值不能取 log，且接近零的整數 RSV 會放大 ratio noise，RACER-GT 僅使用兩邊皆高於預先指定門檻 $c_{\min}$ 的 overlap cells 估計 edge。零值本身不被插補為正值，但必須說明聚合階段的實際行為：當某一歷史日被多個 chunks 覆蓋、其中一部分回傳 0 而另一部分回傳正值時，下節的加權聚合結果為正值，因此該日在最終數列中不再是零。只有\emph{所有}覆蓋該日的 chunks 都為 0 時，零值才會保留。這是聚合規則的推論，不是插補決策，但它改變了 detection reliability 所量測的對象，故 \texttt{CalibrationResult.diagnostics} 另行輸出 \texttt{n\_dates\_with\_zero\_chunk} 與 \texttt{n\_dates\_zero\_masked\_by\_aggregation} 供稽核。對高 zero-share 的關鍵字，應同時檢視這兩個數字，或改採較廣的 Topic 與較低頻率。
+由於零值不能取 log，且接近零的整數 RSV 會放大 ratio noise，RACER-GT 僅使用兩邊皆高於預先指定門檻 $c_{\min}$ 的 overlap cells 估計 edge。零值本身不被插補為正值，但必須說明聚合階段的實際行為：當某一歷史日被多個 chunks 覆蓋、其中一部分回傳 0 而另一部分回傳正值時，下節的加權聚合結果為正值，因此該日在最終數列中不再是零。只有\emph{所有}覆蓋該日的 chunks 都為 0 時，零值才會保留。這是聚合規則的推論，不是插補決策，但它改變了 detection reliability 所量測的對象，故 \texttt{CalibrationResult.\allowbreak diagnostics} 另行輸出 \texttt{n\_dates\_with\_zero\_chunk} 與 \texttt{n\_dates\_zero\_masked\_by\_aggregation} 供稽核。對高 zero-share 的關鍵字，應同時檢視這兩個數字，或改採較廣的 Topic 與較低頻率。
 
 \subsection{Robust edge estimation}
 
@@ -407,7 +407,7 @@ c|u|-\frac{1}{2}c^2, & |u|>c.
 \subsection{真實 Google Trends 資料上的校準檢驗}
 \label{sec:realdata}
 
-上一小節的所有證據都出自本套件自己的模擬器，而模擬器是依估計量所假設的比例模型抽樣的。這是循環論證：它能顯示估計量解出了我們交給它的問題，卻不能顯示那個問題就是真實的問題。本節把校準階段套用在真實下載的資料上：關鍵字 \texttt{bitcoin}、地區美國、日頻、2024 全年，180 天視窗、30 天步進共 8 個 chunk，1{,}440 筆觀測。轉換器為 \texttt{examples/ingest\_trends\_csv.py}，分析為 \texttt{examples/run\_real\_data\_calibration.py}。
+上一小節的所有證據都出自本套件自己的模擬器，而模擬器是依估計量所假設的比例模型抽樣的。這是循環論證：它能顯示估計量解出了我們交給它的問題，卻不能顯示那個問題就是真實的問題。本節把校準階段套用在真實下載的資料上：關鍵字 \texttt{bitcoin}、地區美國、日頻、2024 全年，180 天視窗、30 天步進共 8 個 chunk，1{,}440 筆觀測。轉換器為 \texttt{examples/\allowbreak ingest\_\allowbreak trends\_\allowbreak csv.py}，分析為 \texttt{examples/\allowbreak run\_\allowbreak real\_\allowbreak data\_\allowbreak calibration.py}。
 
 \textbf{先說這份資料不能檢驗什麼。}這是\emph{單一 pull}——一個蒐集日、一個 stream、一次重複。跨 pull 的所有機制因此\emph{完全無法}在此檢驗：共變異數調整的共識加權、exact 與 near-duplicate 診斷、三面向 G-theory 的變異成分、有效 pull 數、\cref{sec:calexp} 的 RMSE 比較，全都需要跨日、跨環境的重複收集。本節不觸及它們，也不對它們作任何宣稱。真正要檢驗完整設計，需要\cref{tab:recommended} 所述規格下為期一個月的收集計畫。此外，真實資料沒有 latent truth，因此\textbf{無法計算重建誤差}，兩個方法都不能被稱為較準確。
 
@@ -415,7 +415,7 @@ c|u|-\frac{1}{2}c^2, & |u|>c.
 
 第一個發現是模擬器結構上產生不了的。GT 以\emph{該次請求視窗內的最大值}正規化每個 chunk。若兩個視窗都涵蓋同一個峰值日，兩者就被同一個數除，取整後在重疊區\emph{逐格完全相同}。本資料中 C0001--C0003 的最大值同為 2024-03-05、C0004--C0005 同為 2024-08-05、C0007--C0008 同為 2024-12-05，於是 26 條重疊 edge 中有 5 條的 log ratio 恆等於零且無離散度：8 個 chunk 實際上只構成\textbf{4 個正規化群}。
 
-這樣的 edge 不帶任何尺度資訊，卻仍以 \texttt{edge\_variance\_floor} 與 \texttt{max\_edge\_weight} 所允許的權重進入加權最小平方——那是數值安全常數，不是統計論證。\texttt{simulate\_racergt\_data} 在取視窗最大值\emph{之前}先對每個 chunk 乘上連續的對數常態噪音；在其預設參數下，兩個 chunk 取整後逐格相同的機率微乎其微，實測 520 條模擬 edge 中零筆退化，真實資料 26 條中 5 筆。（把 \texttt{chunk\_noise\_sd} 設為 $0$ 則模擬器也會產生退化 edge，但那不是它的預設，也不是先前證據所使用的設定。）1.4.0 因此在 \texttt{CalibrationResult.diagnostics} 新增 \texttt{n\_zero\_dispersion\_edges}、\texttt{n\_informative\_edges} 與 \texttt{n\_scale\_groups} 三個鍵。它們\textbf{只作報告，不改變任何估計值}；退化 edge 的處理是使用者的判斷，本套件不代為決定。
+這樣的 edge 不帶任何尺度資訊，卻仍以 \texttt{edge\_\allowbreak variance\_\allowbreak floor} 與 \texttt{max\_\allowbreak edge\_\allowbreak weight} 所允許的權重進入加權最小平方——那是數值安全常數，不是統計論證。\texttt{simulate\_\allowbreak racergt\_\allowbreak data} 在取視窗最大值\emph{之前}先對每個 chunk 乘上連續的對數常態噪音；在其預設參數下，兩個 chunk 取整後逐格相同的機率微乎其微，實測 520 條模擬 edge 中零筆退化，真實資料 26 條中 5 筆。（把 \texttt{chunk\_\allowbreak noise\_\allowbreak sd} 設為 $0$ 則模擬器也會產生退化 edge，但那不是它的預設，也不是先前證據所使用的設定。）1.4.0 因此在 \texttt{CalibrationResult.\allowbreak diagnostics} 新增 \texttt{n\_\allowbreak zero\_\allowbreak dispersion\_\allowbreak edges}、\texttt{n\_\allowbreak informative\_\allowbreak edges} 與 \texttt{n\_scale\_groups} 三個鍵。它們\textbf{只作報告，不改變任何估計值}；退化 edge 的處理是使用者的判斷，本套件不代為決定。
 
 退化率取決於數列的峰值結構，\textbf{不可由單一關鍵字外推}。機制本身是演繹的（共用視窗最大值 $\Rightarrow$ 重疊區同一組整數），但比例是實證問題。
 
@@ -454,14 +454,14 @@ Weighted edge RMSE & 0.001379\\
 
 \subsubsection{模擬器的 chunk 噪音高估約 4.5 倍}
 
-這份資料無法檢驗 F1，卻能決定性地檢驗另一件事：模擬器描述得對不對。\texttt{SimulationSettings.chunk\_noise\_sd} 預設 $0.03$，在取最大值前對每個 chunk 每一天乘上獨立的對數常態擾動。真實資料的重疊 log ratio 離散度中位數為 $0.0188$。
+這份資料無法檢驗 F1，卻能決定性地檢驗另一件事：模擬器描述得對不對。\texttt{SimulationSettings} 的 \texttt{chunk\_\allowbreak noise\_\allowbreak sd} 預設 $0.03$，在取最大值前對每個 chunk 每一天乘上獨立的對數常態擾動。真實資料的重疊 log ratio 離散度中位數為 $0.0188$。
 
 以封閉式的整數捨入下限相減會得到 $0$，但那個下限假設兩個 chunk\emph{獨立}捨入。實際上兩者捨入的是只差一個尺度因子的同一組數字，捨入誤差高度相關，封閉式因而高估下限，並使推得的噪音偏向零——正是對本結論有利的方向。本文因此不採用它，改以參數化 bootstrap 直接重現生成機制：取校準後的日頻數列，乘上指定強度的 chunk 噪音，除以視窗最大值，取整，再用與真實資料完全相同的方式計算離散度。
 
 \begin{table}[H]
 \centering
 \small
-\caption{掃描 \texttt{chunk\_noise\_sd} 並與觀測到的重疊離散度 $0.018814$ 比對。每格 200 次重複。}
+\caption{掃描 \texttt{chunk\_\allowbreak noise\_\allowbreak sd} 並與觀測到的重疊離散度 $0.018814$ 比對。每格 200 次重複。}
 \label{tab:chunknoise}
 \begin{tabular}{lrr}
 \toprule
