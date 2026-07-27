@@ -165,7 +165,7 @@ chunks). Three things came out of it:
 - **The simulator overstates chunk noise by about 4.5×.** Its
   `chunk_noise_sd = 0.03` produces 2.47× the overlap dispersion actually
   observed; the matched value is 0.0066, and plain integer rounding accounts for
-  94% of what real overlaps show.
+  94% of the dispersion real overlaps show.
 - **Google Trends normalizes by the window maximum, so overlapping chunks that
   share a peak day come back identical.** Five of 26 overlaps carried zero
   information, leaving 4 normalization groups among 8 chunks. The simulator
