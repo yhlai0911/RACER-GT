@@ -1,0 +1,27 @@
+{
+  "connected":true,
+  "n_components":1,
+  "component_sizes":[
+    8
+  ],
+  "n_nodes":8,
+  "n_edges":26,
+  "n_zero_dispersion_edges":5,
+  "n_informative_edges":21,
+  "n_scale_groups":4,
+  "reference_chunk":"C0003",
+  "normal_rank":7,
+  "normal_condition_number":10.8213365214,
+  "weighted_edge_rmse":0.0013785519,
+  "normalization_factor":3.0185522901,
+  "normalization_baseline_start":"2024-01-01",
+  "normalization_baseline_end":"2024-12-31",
+  "pull_id":"P001",
+  "series_id":"bitcoin_us",
+  "n_historical_dates":366,
+  "mean_contributing_chunks":3.9344262295,
+  "zero_share_raw":0.0,
+  "n_dates_with_zero_chunk":0,
+  "n_dates_zero_masked_by_aggregation":0,
+  "zero_masked_share":0.0
+}
