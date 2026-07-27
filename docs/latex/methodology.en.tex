@@ -685,9 +685,12 @@ Such an edge carries no scale information, yet it still enters the weighted
 least-squares fit at whatever weight \texttt{edge\_variance\_floor} and
 \texttt{max\_edge\_weight} permit --- numerical safety constants, not a
 statistical argument. \texttt{simulate\_racergt\_data} multiplies every chunk by
-continuous lognormal noise \emph{before} taking the window maximum and so never
-returns identical integers: zero degenerate edges in 520 simulated, against 5 in
-26 real ones. Version 1.4.0 therefore adds
+continuous lognormal noise \emph{before} taking the window maximum, and at its
+default settings the chance that two chunks round to identical integers
+throughout an overlap is negligible: zero degenerate edges in 520 simulated,
+against 5 in 26 real ones. (Setting \texttt{chunk\_noise\_sd} to $0$ would let the
+simulator produce them, but that is neither its default nor the setting under
+which the earlier evidence was generated.) Version 1.4.0 therefore adds
 \texttt{n\_zero\_dispersion\_edges}, \texttt{n\_informative\_edges} and
 \texttt{n\_scale\_groups} to \texttt{CalibrationResult.diagnostics}. They
 \textbf{report only and change no estimate}; what to do about a degenerate edge
@@ -806,7 +809,12 @@ of the joins it walks, and a zero-dispersion join contributes nothing. Only 3 of
 the 7 joins here are informative; their median standard error is $0.002037$, so
 the terminal accumulated standard deviation is $0.0027$ log points, or
 $\mathbf{0.270\%}$. Inverting that: reaching $1\%$ needs about 24 informative
-joins, $5\%$ needs 574, and $10\%$ needs 2{,}189.
+joins, $5\%$ needs 574, and $10\%$ needs 2{,}189. Those three are
+\emph{lower} bounds: the median standard error used is taken over all 21
+informative overlaps, short ones included, whereas the adjacent joins of a
+30-day-step design carry 150-day overlaps at a standard error near $0.0014$,
+which would put $1\%$ at about 50 joins. The estimate is deliberately the one
+that favours F1.
 
 \begin{remark}[F1 is real and immaterial at any feasible scale]\label{rem:f1scale}
 At the overlap lengths and dispersions actually observed, sequential stitching

@@ -180,7 +180,7 @@ the estimator assumes. Version 1.4.0 adds the first test against real Google Tre
 <ul>
 <li><strong>The simulator overstates chunk noise by about 4.5&times;.</strong> Its
 <code>chunk_noise_sd = 0.03</code> produces 2.47&times; the overlap dispersion actually observed; the
-matched value is 0.0066, and plain integer rounding accounts for 94% of what real overlaps show.</li>
+matched value is 0.0066, and plain integer rounding accounts for 94% of the dispersion real overlaps show.</li>
 <li><strong>Trends normalizes by the window maximum, so overlapping chunks sharing a peak day come back
 identical.</strong> Five of 26 overlaps carried zero information, leaving 4 normalization groups among
 8 chunks. The simulator cannot produce this; 1.4.0 reports it without changing any estimate.</li>
