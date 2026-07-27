@@ -168,7 +168,9 @@ from racergt.simulation import SimulationSettings, simulate_racergt_data
 from racergt.validation import run_monte_carlo
 ```
 
-The controlled DGP includes latent dynamics, collection-day/stream effects, correlated retrieval error, independently normalized chunks, rounding/zeros, and optional exact duplicates. The validation module compares single pull, cross-pull mean, median, and RACER-GT against the known latent truth.
+The controlled DGP includes latent dynamics, collection-day/stream effects, correlated retrieval error, independently normalized chunks, rounding/zeros, and optional exact duplicates.
+
+`run_monte_carlo` returns a `ValidationResult` with three frames: `metrics` (one row per replication, estimator, and information set), `summary` (means plus `sd_rmse` and `mcse_rmse`), and `paired_tests`. Each of single pull, cross-pull median, simple mean, and RACER-GT is evaluated twice — on the calibrated pulls alone and after applying the **same** temporal benchmark — because comparing a benchmarked RACER-GT against unbenchmarked baselines confounds the estimator with the extra information. The single-pull row averages over all pulls rather than taking a fixed column. Run `scripts/make_figures.py` afterwards to redraw the manuscript figures from the same CSVs.
 
 ## File I/O
 

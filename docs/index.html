@@ -123,20 +123,32 @@ footer{border-top:1px solid var(--rule);margin-top:3.5rem;padding:1.75rem 0 3rem
 </div>
 
 <h2>Controlled Monte Carlo</h2>
-<p>Twenty replications against a known latent truth:</p>
+<p>Twenty replications against a known latent truth. Every estimator is evaluated twice:
+on the calibrated pulls alone, and after applying the <strong>same</strong> weekly/monthly
+benchmark. Comparing a benchmarked RACER-GT against unbenchmarked baselines would
+confound the estimator with the extra information, so both blocks are reported.</p>
 <table>
-<thead><tr><th>Estimator</th><th>Mean RMSE</th><th>Mean corr.</th><th>Mean innov. corr.</th><th>Mean peak recall</th></tr></thead>
+<thead><tr><th>Estimator</th><th>Benchmark</th><th>RMSE</th><th>MCSE</th><th>Corr.</th><th>Innov. corr.</th></tr></thead>
 <tbody>
-<tr><td>Single pull</td><td class="num">7.2305</td><td class="num">0.9695</td><td class="num">0.8869</td><td class="num">0.8868</td></tr>
-<tr><td>Cross-pull median</td><td class="num">4.1710</td><td class="num">0.9898</td><td class="num">0.9556</td><td class="num">0.9447</td></tr>
-<tr><td>Simple mean</td><td class="num">3.7253</td><td class="num">0.9919</td><td class="num"><strong>0.9747</strong></td><td class="num">0.9526</td></tr>
-<tr><td><strong>RACER-GT</strong></td><td class="num"><strong>3.5265</strong></td><td class="num"><strong>0.9927</strong></td><td class="num">0.9745</td><td class="num">0.9526</td></tr>
+<tr><td>Single pull</td><td>no</td><td class="num">7.3519</td><td class="num">0.0573</td><td class="num">0.9688</td><td class="num">0.8878</td></tr>
+<tr><td>Cross-pull median</td><td>no</td><td class="num">4.1710</td><td class="num">0.0819</td><td class="num">0.9898</td><td class="num">0.9556</td></tr>
+<tr><td>Simple mean</td><td>no</td><td class="num"><strong>3.7253</strong></td><td class="num">0.0877</td><td class="num">0.9919</td><td class="num"><strong>0.9747</strong></td></tr>
+<tr><td>RACER-GT</td><td>no</td><td class="num">3.7421</td><td class="num">0.0894</td><td class="num">0.9918</td><td class="num">0.9743</td></tr>
+<tr><td>Single pull</td><td>yes</td><td class="num">6.9881</td><td class="num">0.0491</td><td class="num">0.9717</td><td class="num">0.8882</td></tr>
+<tr><td>Cross-pull median</td><td>yes</td><td class="num">3.9584</td><td class="num">0.0695</td><td class="num">0.9908</td><td class="num">0.9558</td></tr>
+<tr><td>Simple mean</td><td>yes</td><td class="num"><strong>3.5058</strong></td><td class="num">0.0754</td><td class="num"><strong>0.9928</strong></td><td class="num"><strong>0.9748</strong></td></tr>
+<tr><td>RACER-GT</td><td>yes</td><td class="num">3.5226</td><td class="num">0.0770</td><td class="num">0.9927</td><td class="num">0.9745</td></tr>
 </tbody>
 </table>
 <div class="note">
-RACER-GT does <strong>not</strong> dominate on every metric. Innovation correlation is marginally
-lower than the simple mean and peak recall is identical; the gain concentrates in level
-accuracy. This is one data-generating process, not a universal guarantee.
+Three findings, two favourable and one not. Cross-pull aggregation cuts RMSE by
+<strong>49.1%</strong> against a single pull (20/20 replications, p = 2.4e-21) and 10.3%
+against the median. Temporal benchmarking adds about 0.22 more, almost identically for
+RACER-GT and for the simple mean. Covariance-adjusted weighting, however, shows
+<strong>no detectable advantage over a simple mean</strong> (&minus;0.0167, p = 0.15,
+winning 7 of 20). We report that rather than only the favourable comparison: dependence
+in this DGP is homogeneous, and GLS beats equal weights only when dependence strength
+varies across pulls. This is one data-generating process, not a universal guarantee.
 </div>
 
 <h2>What this does not claim</h2>

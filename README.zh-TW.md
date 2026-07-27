@@ -220,14 +220,30 @@ RACER-GT 不宣稱能從 proprietary GT 系統無條件證明「真實搜尋量�
 
 20 次受控模擬中，平均 RMSE 為：
 
-| 方法 | Mean RMSE |
-|---|---:|
-| Single pull | 7.2305 |
-| Cross-pull median | 4.1710 |
-| Simple mean | 3.7253 |
-| RACER-GT | 3.5265 |
+每個估計量都在兩個資訊集下各評估一次：僅使用校準後的 pulls，以及套用**完全相同**的週／月頻 benchmark。若以「已 benchmark 的 RACER-GT」對比「未 benchmark 的基準」，會把估計量的效果與額外資訊混在一起，因此兩個區塊一律並列。Single pull 一列是所有 pull 的平均表現，不是固定取某一欄。
 
-在此特定 DGP 下，RACER-GT 相較 single pull 降低約 51.2% RMSE，相較 simple mean 降低約 5.3%。這不是跨所有 DGP 的普遍保證；模擬程式與逐次結果均隨套件附上。
+| 方法 | Benchmark | RMSE | MCSE | Corr. | Innov. corr. |
+|---|:--:|---:|---:|---:|---:|
+| Single pull | 無 | 7.3519 | 0.0573 | 0.9688 | 0.8878 |
+| Cross-pull median | 無 | 4.1710 | 0.0819 | 0.9898 | 0.9556 |
+| Simple mean | 無 | **3.7253** | 0.0877 | 0.9919 | **0.9747** |
+| RACER-GT | 無 | 3.7421 | 0.0894 | 0.9918 | 0.9743 |
+| Single pull | 有 | 6.9881 | 0.0491 | 0.9717 | 0.8882 |
+| Cross-pull median | 有 | 3.9584 | 0.0695 | 0.9908 | 0.9558 |
+| Simple mean | 有 | **3.5058** | 0.0754 | **0.9928** | **0.9748** |
+| RACER-GT | 有 | 3.5226 | 0.0770 | 0.9927 | 0.9745 |
+
+20 次重複的配對檢定（正值表示前者較優）：
+
+| 比較 | 差值 | p | 勝場 |
+|---|---:|---:|:--:|
+| RACER-GT vs single pull | +3.6098 | 2.4e-21 | 20/20 |
+| RACER-GT vs cross-pull median | +0.4289 | 6.5e-12 | 20/20 |
+| RACER-GT vs simple mean | −0.0167 | 0.152 | 7/20 |
+| RACER-GT vs simple mean（皆已 benchmark） | −0.0168 | 0.116 | 7/20 |
+| benchmark 的貢獻（估計量固定） | +0.2194 | 3.1e-12 | 20/20 |
+
+三項結論，兩項有利、一項不利。跨 pull 聚合相對單一 pull 降低 **49.1%** RMSE（20 次全勝），相對中位數降低 10.3%；temporal benchmarking 另貢獻約 0.22，且對 RACER-GT 與 simple mean 的效果幾乎相同。但**共變異數調整加權相對簡單平均沒有可偵測的優勢**（p = 0.15）。此處據實報告該負面結果：本 DGP 的跨 pull 依賴高度同質，而 GLS 相對等權平均的優勢需要依賴強度在 pulls 之間不同才會顯現。這不是跨所有 DGP 的普遍保證；`examples/run_monte_carlo.py` 可重現全部數字，`scripts/make_figures.py` 由同一份 CSV 重繪圖表。
 
 ## Stata interoperability
 

@@ -88,17 +88,43 @@ Linux CI via `fonts-noto-core` and `fonts-noto-cjk`.
 
 Twenty replications re-run on this tree (`examples/run_monte_carlo.py`):
 
-| Estimator | Mean RMSE | Mean corr. | Mean innov. corr. | Mean peak recall |
-|---|---:|---:|---:|---:|
-| Single pull | 7.230524 | 0.969502 | 0.886907 | 0.886842 |
-| Cross-pull median | 4.170974 | 0.989829 | 0.955615 | 0.944737 |
-| Simple mean | 3.725331 | 0.991879 | 0.974724 | 0.952632 |
-| RACER-GT | 3.526473 | 0.992743 | 0.974451 | 0.952632 |
+| Estimator | Benchmark | RMSE | MCSE | Corr. | Innov. corr. | Peak recall |
+|---|:--:|---:|---:|---:|---:|---:|
+| Single pull | no | 7.3519 | 0.0573 | 0.9688 | 0.8878 | 0.8912 |
+| Cross-pull median | no | 4.1710 | 0.0819 | 0.9898 | 0.9556 | 0.9447 |
+| Simple mean | no | **3.7253** | 0.0877 | 0.9919 | **0.9747** | 0.9526 |
+| RACER-GT | no | 3.7421 | 0.0894 | 0.9918 | 0.9743 | 0.9526 |
+| Single pull | yes | 6.9881 | 0.0491 | 0.9717 | 0.8882 | 0.8947 |
+| Cross-pull median | yes | 3.9584 | 0.0695 | 0.9908 | 0.9558 | 0.9474 |
+| Simple mean | yes | **3.5058** | 0.0754 | **0.9928** | **0.9748** | **0.9553** |
+| RACER-GT | yes | 3.5226 | 0.0770 | 0.9927 | 0.9745 | 0.9526 |
 
-RACER-GT reduces mean RMSE by approximately 51.2% relative to a single pull and
-5.3% relative to the simple mean. It does **not** dominate on every reported
-statistic: mean innovation correlation is marginally lower and peak recall is
-equal. The gain concentrates in level accuracy.
+Every estimator is evaluated twice: on the calibrated pulls alone, and after
+applying the **same** weekly/monthly benchmark. Comparing a benchmarked RACER-GT
+against unbenchmarked baselines would confound the estimator with the extra
+information, so both blocks are always reported. The single-pull row is the mean
+over all pulls, not a fixed column.
+
+Paired tests over the 20 replications (positive favours the first estimator):
+
+| Comparison | Difference | p | Wins |
+|---|---:|---:|:--:|
+| RACER-GT vs single pull | +3.6098 | 2.4e-21 | 20/20 |
+| RACER-GT vs cross-pull median | +0.4289 | 6.5e-12 | 20/20 |
+| RACER-GT vs simple mean | −0.0167 | 0.152 | 7/20 |
+| RACER-GT vs simple mean (both benchmarked) | −0.0168 | 0.116 | 7/20 |
+| Benchmark gain, estimator fixed | +0.2194 | 3.1e-12 | 20/20 |
+
+Three findings, two favourable and one not. Cross-pull aggregation cuts RMSE by
+**49.1%** against a single pull (20/20 replications) and 10.3% against the
+median. Temporal benchmarking adds about 0.22 more, and adds it almost
+identically to RACER-GT and to the simple mean. Covariance-adjusted weighting,
+however, shows **no detectable advantage over a simple mean** (p = 0.15). We
+report that rather than only the favourable comparison: dependence in this DGP
+is homogeneous, and GLS beats equal weights only when dependence strength varies
+across pulls. This is one data-generating process, not a universal guarantee —
+`examples/run_monte_carlo.py` reproduces it and `scripts/make_figures.py`
+redraws the figures from the same CSVs.
 
 ### Reproducibility tolerance
 
