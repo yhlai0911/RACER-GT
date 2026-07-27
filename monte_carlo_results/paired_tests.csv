@@ -1,0 +1,7 @@
+estimator,reference,comparison,mean_rmse_difference,t_statistic,t_p_value,wilcoxon_p_value,wins,n_replications
+RACER_GT,single_pull,"aggregation gain, neither benchmarked",3.6098392265078987,48.31440235184807,2.375204553977905e-21,1.9073486328125e-06,20,20
+RACER_GT,simple_mean,"weighting gain, neither benchmarked",-0.016721259866715778,-1.4915961086134968,0.15222238502902788,0.21616744995117188,7,20
+RACER_GT,cross_pull_median,weighting gain versus the median,0.4289223129880567,14.855841145126973,6.522314841140526e-12,1.9073486328125e-06,20,20
+RACER_GT_benchmarked,simple_mean_benchmarked,"weighting gain, both benchmarked",-0.01684640122349017,-1.6462400298247932,0.11615548201446545,0.16495704650878906,7,20
+RACER_GT_benchmarked,RACER_GT,"benchmark gain, estimator held fixed",0.2194152626509423,15.494424772611485,3.107058368326031e-12,1.9073486328125e-06,20,20
+simple_mean_benchmarked,simple_mean,benchmark gain for the simple mean,0.21954040400771663,15.448985911062568,3.2725459152633587e-12,1.9073486328125e-06,20,20
