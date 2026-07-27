@@ -1,5 +1,50 @@
 # Changelog
 
+## 1.3.0 - 2026-07-27
+
+Answers the question the project had never asked: is this better than the
+alternatives? Only one alternative could be compared directly, and the answer
+there is no.
+
+### Added
+
+- `src/racergt/baselines.py` implements sequential stitching in the style of
+  Bleher and Dimpfl's knitting -- the reassembly the applied literature usually
+  performs, and the procedure failure mode F1 argues against. It reuses the same
+  Huber edge estimator, the same minimum-value gate, and the same baseline
+  normalization, so the only difference from the graph calibrator is that it
+  walks a spanning path instead of solving all overlaps jointly. A test pins the
+  two to agree exactly on noiseless data, so the comparison measures the design
+  choice rather than an implementation gap.
+- `examples/run_calibration_comparison.py` and `calibration_comparison/`. The
+  mechanism F1 describes is real and now quantified: sequential stitching's
+  recovered log scale grows in cross-replication spread by a factor of 4.75 from
+  the start of the chain to the end, against 1.12 for the graph. The accuracy
+  consequence is not: even at 17 joins with retrieval noise cut to a sixth --- the
+  setting built to favour the graph --- the advantage is +0.0111 with p = 0.098
+  and 21 wins out of 40. At the shortest chain the graph is significantly worse.
+- A remark on why the collection day is the load-bearing facet, following
+  Djorno et al. (2026) on the twenty-four-hour cache and midnight-UTC reset, with
+  the prediction it implies for the technical-replicate variance component. The
+  prediction is stated as testable, not assumed; no result depends on it.
+
+### Changed
+
+- Both manuscripts, both READMEs and the landing page now state plainly what has
+  and has not been compared. Against a single download the improvement is large
+  and robust (49.1%, 20/20). Against a simple cross-pull mean and against
+  sequential stitching there is no detectable advantage. West (2020) and Djorno
+  et al. (2026) are **not** compared, because an anchor bank needs several
+  queries and a preprocessing pipeline evaluated on downstream forecasts does not
+  fit a single-series latent-truth simulation. No accuracy claim is made against
+  them.
+- The cross-cutting conclusion is now stated as such. Three mechanisms have been
+  tested directly -- covariance weighting, dependence heterogeneity, and graph
+  calibration -- and all three behave as designed while leaving point accuracy
+  essentially unchanged. The framework's value is that it produces a series whose
+  quality can be judged, which is a different claim from producing a more
+  accurate one, and the evidence now supports the former rather than the latter.
+
 ## 1.2.0 - 2026-07-27
 
 Tests a prediction that 1.1.0 made and could not check, and reports that the

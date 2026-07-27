@@ -66,9 +66,16 @@ constraints are not responsible (the unrestricted solution is identical to the
 digit) and that the mechanism works as intended (weights correlate $-0.562$ with
 shared residual dependence), leaving the error in estimating $\Sig$ from nine
 pulls as what exceeds the efficiency it buys. The theory is untouched --- GLS is
-still BLUE with $\Sig$ known --- but the practical recommendation is not. None of
-these figures is a universal optimality guarantee across keywords, regions, or
-GT versions.
+still BLUE with $\Sig$ known --- but the practical recommendation is not. The
+calibration stage yields the same shape of result: global overlap-graph
+calibration does stop error accumulating along the chain of joins relative to
+sequential stitching (growth ratio $1.12$ against $4.75$), yet the difference in
+reconstruction error reaches only $p=0.098$ under the setting most favourable to
+it. Taken together these give one cross-cutting conclusion: each mechanism works
+as designed and can be shown to work, while its effect on point accuracy is
+second order. The value of this framework is that it produces a series whose
+quality can be \textbf{judged}, not a more accurate one. None of these figures is
+a universal optimality guarantee across keywords, regions, or GT versions.
 
 \medskip
 \noindent\textbf{Keywords:} Google Trends; investor attention; measurement
@@ -218,6 +225,31 @@ sometimes treats distinct IP addresses as independent sampling units, which the
 design does not license.
 \end{remark}
 
+\begin{remark}[Why the collection day is the load-bearing facet]\label{rem:cache}
+The design treats the collection day as a facet in its own right because the
+platform appears to resample on a daily cycle rather than per request.
+\citet{Djorno2026} report that repeated identical requests are served from a
+cache for twenty-four hours and that a fresh sample is drawn when the cache
+resets at midnight UTC.
+
+Two consequences follow. First, repeated retrieval within a day cannot buy
+independent information about the sampling error, so the effective rate at which
+evidence accumulates is bounded at one fresh draw per day. Any procedure that
+reduces sampling variability by averaging repeated pulls --- including the one
+recommended by \citet{EichenauerIMS2022} --- therefore trades precision against
+calendar time, which is what makes it awkward for real-time work.
+
+Second, the mechanism yields a prediction this framework can be judged by. If the
+daily cache holds exactly, the technical-replicate variance component in
+\cref{sec:gstudy} should be indistinguishable from zero, and the exact
+duplicates retained in \cref{sec:duplicates} are not a nuisance to be cleaned
+away but the direct observable signature of the cache. If that component is
+bounded away from zero, the daily-cache description is incomplete for the
+queries at hand. We state the prediction because it is cheap to test and because
+both outcomes are informative; we do not assume it, and no result in this paper
+depends on it holding.
+\end{remark}
+
 \subsection{Three failure modes of naive construction}
 
 Let $X_t$ denote the latent relative search signal we wish to recover.
@@ -264,6 +296,16 @@ as a single preprocessing problem, and report that repeated requests are served
 from a cache that resets at midnight UTC, so that a fresh sample is drawn only
 once per day. Their remedy is hierarchical clustering, smoothing splines, and
 detrending, validated by the accuracy of downstream influenza forecasts.
+
+On empirical comparison this paper is deliberately narrow. Only sequential
+stitching is compared directly (\cref{sec:calexp}), and the result is that the
+mechanism holds while the accuracy difference does not reach significance.
+\citet{West2020}'s anchor bank needs several queries to operate and
+\citet{Djorno2026} evaluate against downstream forecast accuracy, neither of
+which the single-series, latent-truth simulation here can accommodate. We
+therefore make \textbf{no claim} of accuracy superiority over those methods. What
+is established is a large improvement over downloading once, and a set of
+diagnostics the alternatives do not provide.
 
 What that work leaves open is the step from a smoothed curve to an input for
 inference. None of it fixes the retrieval design in advance as a crossed
@@ -538,6 +580,72 @@ optionally with a lognormal bias correction. Overlapping dates are aggregated by
 inverse-variance weighting. The resulting series is normalized so that its mean
 over the prespecified baseline window equals $100$. This normalization defines
 the scale of the estimand; it is not an estimate of absolute search volume.
+
+% =============================================================================
+\subsection{A direct comparison with sequential stitching}\label{sec:calexp}
+
+Failure mode F1 argued that sequential stitching accumulates scale error along
+the chain and that solving the graph avoids it. Until now that was an argument,
+not a measurement. \texttt{src/racergt/baselines.py} implements sequential
+stitching in the style of Bleher and Dimpfl's knitting, reusing the \emph{same}
+Huber edge estimator, the same $c_{\min}$ gate, and the same baseline
+normalization; the only difference is that it walks a spanning path instead of
+solving the whole graph, so any gap is attributable to that choice alone.
+\texttt{examples/run\_calibration\_comparison.py} runs both.
+
+\begin{table}[H]
+\centering
+\small
+\caption{Global graph calibration against sequential stitching, 20 seeds by 2
+pulls per cell. Advantage is sequential minus graph in RMSE, so positive favours
+the graph.}
+\label{tab:calexp}
+\begin{tabular}{lrrrrrrl}
+\toprule
+Design & Joins & Graph & Sequential & Advantage & MCSE & $p$ & Graph wins\\
+\midrule
+60-day step & 5 & 7.4827 & 7.4677 & $-0.0150$ & 0.0053 & $0.008$ & 13/40\\
+30-day step & 9 & 7.3026 & 7.2967 & $-0.0059$ & 0.0049 & $0.234$ & 15/40\\
+15-day step & 17 & 7.2085 & 7.2125 & $+0.0040$ & 0.0072 & $0.576$ & 15/40\\
+15-day step, low noise & 17 & 1.9245 & 1.9356 & $+0.0111$ & 0.0066 & $0.098$ & 21/40\\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\textbf{The mechanism holds; its effect is second order.} The accumulation F1
+describes is real and its magnitude is clear: under the 15-day design the
+cross-replication standard deviation of the recovered log scale rises from
+$0.0259$ early in the chain to $0.1228$ at the end, a factor of $4.75$, while
+the graph's ratio is $1.12$. Error does accumulate along a spanning path, and
+solving jointly does prevent it.
+
+It does not translate into a detectable advantage in reconstruction error. The
+direction matches F1 --- going from 5 joins to 17 moves the advantage from
+$-0.0150$ to $+0.0040$, and cutting retrieval noise from $0.06$ to $0.01$, so
+that calibration error carries a larger share of the total, raises it further to
+$+0.0111$ --- but even in that setting, purpose-built to favour F1, $p=0.098$ with
+21 wins out of 40. At the shortest chain the graph is significantly \emph{worse}
+($p=0.008$), because its reference chunk is chosen by highest degree rather than
+fixed at the first chunk, and because it additionally applies the lognormal
+correction.
+
+\begin{remark}[Three mechanisms, one conclusion]\label{rem:pattern}
+This is the third result of the same shape. Covariance-adjusted weighting
+correctly identifies and down-weights dependent pulls (weights correlate
+$-0.562$ with shared residual dependence) without improving RMSE. The prediction
+that heterogeneous dependence would change that was tested and failed. Global
+graph calibration does prevent error accumulating along the chain ($1.12$ against
+$4.75$) and likewise does not improve RMSE.
+
+The common structure is that each mechanism works as designed and can be shown
+to work, while its effect on \emph{point accuracy} is second order and swamped
+by retrieval noise. For a user that conclusion matters more than any single
+number: the value of this framework is not that it produces a more accurate
+series, but that it produces a series whose quality can be judged. Effective
+pull counts, dependence structure, cycle-consistency statistics, per-day
+conditional standard errors, and propagatable measurement uncertainty are
+information that RMSE neither expresses nor replaces.
+\end{remark}
 
 % =============================================================================
 \section{Stage 2: duplicate and dependence diagnostics}\label{sec:duplicates}
