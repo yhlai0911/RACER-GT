@@ -1,0 +1,52 @@
+name: Bootstrap validated RACER-GT source
+
+on:
+  push:
+    paths:
+      - bootstrap.ready
+
+permissions:
+  contents: write
+
+jobs:
+  bootstrap:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Replace repository with validated v0.3.0 tree
+        shell: bash
+        run: |
+          set -euo pipefail
+          cat bootstrap_parts/part_* > /tmp/racergt.b64
+          base64 --decode /tmp/racergt.b64 > /tmp/racergt.tar.gz
+          mkdir -p /tmp/racergt_source
+          tar -xzf /tmp/racergt.tar.gz -C /tmp/racergt_source
+
+          find . -mindepth 1 -maxdepth 1 \
+            ! -name .git \
+            ! -name bootstrap_parts \
+            ! -name bootstrap.ready \
+            ! -name .github \
+            -exec rm -rf {} +
+          mkdir -p .github/workflows
+          find .github -mindepth 1 -maxdepth 1 ! -name workflows -exec rm -rf {} +
+          find .github/workflows -type f ! -name bootstrap.yml -delete
+
+          cp -a /tmp/racergt_source/. .
+          rm -rf bootstrap_parts bootstrap.ready .github/workflows/bootstrap.yml
+
+          find . -type f ! -path './.git/*' ! -name SHA256SUMS.txt -print0 \
+            | sort -z | xargs -0 sha256sum > SHA256SUMS.txt
+
+      - name: Commit validated source tree
+        shell: bash
+        run: |
+          set -euo pipefail
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add -A
+          git commit -m "feat: publish validated RACER-GT v0.3.0 source"
+          git push origin HEAD:main
