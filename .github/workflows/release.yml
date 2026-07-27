@@ -53,7 +53,12 @@ jobs:
     name: publish to PyPI
     needs: build
     runs-on: ubuntu-latest
-    if: startsWith(github.ref, 'refs/tags/v')
+    # Gated on an explicit opt-in. Publishing to PyPI is irreversible: a version
+    # number can never be reused, even after deletion. The repository owner
+    # enables this once, after configuring the trusted publisher below, by
+    # setting the repository variable PYPI_PUBLISH to "true" under
+    # Settings -> Secrets and variables -> Actions -> Variables.
+    if: startsWith(github.ref, 'refs/tags/v') && vars.PYPI_PUBLISH == 'true'
     environment:
       name: pypi
       url: https://pypi.org/p/racergt
