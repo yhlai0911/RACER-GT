@@ -24,3 +24,24 @@
 \newtheorem{remark}{Remark}[section]
 \newtheorem{definition}{Definition}[section]
 \newtheorem{lemma}{Lemma}[section]
+
+% cleveref is loaded from _common.tex, i.e. before the \newtheorem declarations
+% above, so it never learns a plural name for them. A single \cref falls back to
+% something readable, but a grouped reference such as
+% \cref{as:overlap,as:connected,as:edge-mean} needs the plural and silently
+% typesets "??" instead, which is what happened in propositions 5.2 and 8.1 and
+% in the scope list of section 14. _preamble-zh.tex already declares these; this
+% is the missing English counterpart. Declaring every theorem type, not only
+% assumption, prevents the same failure in any future grouped reference.
+\crefname{assumption}{assumption}{assumptions}
+\Crefname{assumption}{Assumption}{Assumptions}
+\crefname{proposition}{proposition}{propositions}
+\Crefname{proposition}{Proposition}{Propositions}
+\crefname{corollary}{corollary}{corollaries}
+\Crefname{corollary}{Corollary}{Corollaries}
+\crefname{remark}{remark}{remarks}
+\Crefname{remark}{Remark}{Remarks}
+\crefname{definition}{definition}{definitions}
+\Crefname{definition}{Definition}{Definitions}
+\crefname{lemma}{lemma}{lemmas}
+\Crefname{lemma}{Lemma}{Lemmas}
