@@ -150,7 +150,13 @@ class ConsensusConfig(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
     collapse_exact_duplicates: bool = True
-    center_pull_bias: bool = True
+    # Off by default. When baseline_rescale is on, every pull already has the same
+    # baseline mean, so the additive centring term is identical across pulls: it
+    # shifts the whole consensus by (100 - mean of the daily medians) instead of
+    # removing any pull-specific bias. That shift violates E(e_t)=0 in the
+    # consensus model and measurably degrades RMSE. Enable it only when
+    # baseline_rescale is off and an additive pull offset is genuinely expected.
+    center_pull_bias: bool = False
     covariance: Literal["ledoit_wolf", "empirical", "diagonal"] = "ledoit_wolf"
     nonnegative_weights: bool = True
     weight_cap: float | None = 0.50

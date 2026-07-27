@@ -50,7 +50,10 @@ duplicates:
   use_residual_rule: true
 consensus:
   collapse_exact_duplicates: true
-  center_pull_bias: true
+  # Off by default: with baseline_rescale on, this subtracts one common constant
+  # from every pull rather than a pull-specific offset. See the consensus section
+  # of the methodology manuscript.
+  center_pull_bias: false
   covariance: ledoit_wolf
   nonnegative_weights: true
   weight_cap: 0.50

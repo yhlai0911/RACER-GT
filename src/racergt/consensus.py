@@ -224,8 +224,17 @@ def _nearest_psd(matrix: np.ndarray, floor: float = 1e-10) -> np.ndarray:
 def _estimate_covariance(residuals: pd.DataFrame, method: str) -> np.ndarray:
     clean = residuals.dropna(axis=0, how="any")
     if len(clean) < max(5, residuals.shape[1] + 1):
-        # Missing residuals are centered; zero imputation is conservative for rare gaps.
-        clean = residuals.fillna(0.0)
+        # Too few jointly complete rows. Zero-filling the gaps would pull both
+        # variances and covariances toward zero, understating Sigma and therefore
+        # overstating precision -- the wrong direction for uncertainty quantification.
+        # Pairwise-complete moments keep every entry on the observations that actually
+        # exist; the nearest-PSD projection then repairs the indefiniteness that
+        # pairwise estimation can introduce.
+        pairwise = residuals.cov(min_periods=2).to_numpy(dtype=float)
+        pairwise = np.nan_to_num(pairwise, nan=0.0)
+        if method == "diagonal":
+            return np.diag(np.maximum(np.diag(pairwise), 1e-10))
+        return _nearest_psd(pairwise)
     x = clean.to_numpy(dtype=float)
     if method == "diagonal":
         var = np.var(x, axis=0, ddof=1)
@@ -295,6 +304,12 @@ def fit_gls_consensus(
     weights Sigma^{-1}1/(1' Sigma^{-1}1) are BLUE. The default constrained version
     enforces nonnegative weights to avoid unstable extrapolation while preserving the
     sum-to-one unbiasedness condition.
+
+    Scale alignment is done by baseline_rescale, which puts every pull on the common
+    baseline-mean-100 index. center_pull_bias is a separate, off-by-default step: with
+    baseline_rescale on it subtracts one common constant from every pull rather than a
+    pull-specific offset, which shifts the consensus level and violates E(e_t)=0. The
+    diagnostics report pull_bias_cross_pull_sd so that degeneracy stays visible.
     """
 
     if matrix.shape[1] < 2:
@@ -326,8 +341,19 @@ def fit_gls_consensus(
         work = work.divide(means, axis=1) * 100.0
 
     preliminary = work.median(axis=1, skipna=True)
-    pull_bias = work.sub(preliminary, axis=0).mean(axis=0, skipna=True)
-    aligned = work.sub(pull_bias, axis=1) if config.center_pull_bias else work.copy()
+    candidate_bias = work.sub(preliminary, axis=0).mean(axis=0, skipna=True)
+    # Degeneracy check, reported rather than silently absorbed. Once baseline_rescale
+    # has set every pull to the same baseline mean, candidate_bias is the same number
+    # for every pull, namely 100 minus the mean of the daily medians. Subtracting it
+    # is a level shift of the whole consensus, not a removal of pull-specific bias,
+    # and it breaks E(e_t)=0 in the measurement model below.
+    bias_spread = float(candidate_bias.std(ddof=1)) if len(candidate_bias) > 1 else 0.0
+    if config.center_pull_bias:
+        applied_bias = candidate_bias
+        aligned = work.sub(applied_bias, axis=1)
+    else:
+        applied_bias = pd.Series(0.0, index=work.columns, dtype=float)
+        aligned = work.copy()
     preliminary = aligned.median(axis=1, skipna=True)
     residuals = aligned.sub(preliminary, axis=0)
 
@@ -381,7 +407,7 @@ def fit_gls_consensus(
     multiplicity_map = (
         duplicate_map.groupby("representative_pull_id")["multiplicity"].max().to_dict()
     )
-    bias_map = pull_bias.to_dict()
+    bias_map = applied_bias.to_dict()
     meta_map: dict[str, dict] = {}
     if metadata is not None and "pull_id" in metadata.columns:
         for record in metadata.drop_duplicates("pull_id").to_dict(orient="records"):
@@ -405,6 +431,11 @@ def fit_gls_consensus(
         "n_collapsed_exact_duplicates": int(original.shape[1] - aligned.shape[1]),
         "covariance_method": config.covariance,
         "nonnegative_weights": config.nonnegative_weights,
+        "center_pull_bias": bool(config.center_pull_bias),
+        # Near-zero spread means the centring term carries no pull-specific
+        # information; the common shift is what would have been applied to every pull.
+        "pull_bias_cross_pull_sd": bias_spread,
+        "pull_bias_common_shift": float(candidate_bias.mean()),
         "base_consensus_se": base_se,
         "minimum_weight": float(weights.min()),
         "maximum_weight": float(weights.max()),
