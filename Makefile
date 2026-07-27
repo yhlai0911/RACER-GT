@@ -1,7 +1,15 @@
-.PHONY: test build clean simulate paper
+.PHONY: test lint build clean simulate docs checksums all
 
 test:
 	PYTHONPATH=src pytest -q
+
+lint:
+	ruff check src tests examples scripts
+
+# Every document, both languages, into docs/pdf. Requires latexmk + XeLaTeX
+# and the five Noto families listed at the top of docs/latex/_common.tex.
+docs:
+	python scripts/build_docs.py
 
 build: clean
 	python -m build
@@ -9,8 +17,16 @@ build: clean
 simulate:
 	PYTHONPATH=src python examples/run_monte_carlo.py
 
-paper:
-	cd paper && latexmk -xelatex -interaction=nonstopmode -halt-on-error RACER_GT_Methodology_zh_TW.tex
+# Release integrity manifest. Regenerate whenever a tracked file changes,
+# otherwise `shasum -a 256 -c SHA256SUMS_PROJECT.txt` reports stale failures.
+# Uses git ls-files so the manifest and the repository cannot drift apart.
+checksums:
+	@git ls-files -z \
+	  | grep -zv '^SHA256SUMS_PROJECT.txt$$' \
+	  | xargs -0 shasum -a 256 > SHA256SUMS_PROJECT.txt
+	@echo "wrote SHA256SUMS_PROJECT.txt ($$(wc -l < SHA256SUMS_PROJECT.txt | tr -d ' ') files)"
+
+all: lint test docs build checksums
 
 clean:
 	rm -rf build dist .pytest_cache src/*.egg-info src/racergt.egg-info

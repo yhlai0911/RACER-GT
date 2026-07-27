@@ -1,8 +1,9 @@
-include LICENSE README.md CHANGELOG.md CITATION.cff RELEASE_NOTES.md RELEASE_VALIDATION.md requirements.txt requirements-dev.txt Makefile
+include LICENSE README.md README.zh-TW.md CONTRIBUTING.md CODE_OF_CONDUCT.md SECURITY.md CHANGELOG.md CITATION.cff RELEASE_NOTES.md RELEASE_VALIDATION.md requirements.txt requirements-dev.txt Makefile
 recursive-include docs *.md
-recursive-include examples *.py *.yaml *.csv
+recursive-include examples *.py *.yaml *.csv *.md
 recursive-include tests *.py
-recursive-include paper *.tex *.pdf
+recursive-include docs/latex *.tex
+recursive-include docs/pdf *.pdf
 recursive-include monte_carlo_results *.csv
 prune build
 prune dist

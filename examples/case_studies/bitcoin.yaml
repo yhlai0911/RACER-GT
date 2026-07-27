@@ -1,0 +1,46 @@
+# RACER-GT case study: bitcoin (US)
+#
+# High and persistent search volume. Zero share is expected to be negligible, so the detection rule will usually be reported as indeterminate and automatically treated as non-mandatory.
+#
+# This file locks the protocol only. It contains no Google Trends data.
+# See examples/case_studies/README.md for how to collect it.
+
+query:
+  series_id: bitcoin_attention
+  keyword: bitcoin
+  geo: US
+  category: 7
+  search_property: web
+  language: en-US
+  historical_start: '2019-01-01'
+  historical_end: '2025-12-31'
+  topic_or_term: term
+  baseline_start: '2019-01-01'
+  baseline_end: '2025-12-31'
+design:
+  day_offsets:
+  - 0
+  - 1
+  - 2
+  - 7
+  - 14
+  - 21
+  - 30
+  streams:
+  - A
+  - B
+  - C
+  technical_replicates: 1
+  time_slots:
+  - 09:00
+  - '13:00'
+  - '17:00'
+  random_seed: 20260727
+  balance_stream_order: true
+  balance_chunk_order: true
+  require_fixed_environment_within_stream: true
+chunking:
+  window_days: 180
+  step_days: 30
+  min_overlap_days: 14
+  inclusive_end: true
