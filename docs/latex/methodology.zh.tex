@@ -1012,7 +1012,17 @@ Downstream model & 主結果使用 final consensus；另以 sample-specific pull
 
 第四，benchmark 後的 1.0.0 信賴區間主要保留 cross-pull measurement uncertainty，尚未完整傳播 benchmark noise、scale calibration uncertainty 與 tuning-parameter uncertainty。最嚴謹方式是 nested moving-block bootstrap：每次重抽 historical blocks、重新估 edges、scales、duplicates、covariance、weights 與 benchmark，最後再重估財金模型。
 
-第五，受限 GLS weights 的穩定性優於 unrestricted inverse covariance，但其最佳性取決於預先指定 constraint set。應報告 diagonal covariance、empirical covariance、Ledoit--Wolf、unrestricted GLS、equal weights 與 median 的 sensitivity table。
+第五，\textbf{取得端的 rate limit 是一個實質約束，且它會反噬設計本身}。本文第 12 節建議的 protocol（2010 年起、180 日 window、15--30 日 step、21--42 pulls）隱含的請求量並不小：以 15 日 step 計，單一 pull 需 393 個 chunks，而每個 chunk 需要兩次請求（explore 取 token、widgetdata 取數值），故一個 pull 即為 786 次請求，21 pulls 為 16{,}506 次、42 pulls 為 33{,}012 次。在 20 秒的保守請求間隔下，這分別是約 92 與 183 小時的連續取得時間；即使是單一 pull 也需約 4.4 小時。
+
+而 Google Trends 對此有嚴格限流。作者在一次測試中，explore 端點回傳 200，但第\emph{二}次 widgetdata 請求即回傳 HTTP 429，等待 30 秒後重試仍為 429。單一觀察不足以量化 Google 的限流政策——它可能隨 IP、時段、帳號狀態與請求模式而異——但已足以說明取得可行性不是可以略過的工程細節。
+
+限流亦不限於程式化存取。同一時段以一般瀏覽器（已登入、人工導航）開啟 Trends 網頁時，網頁\emph{自身}前端發出的 \texttt{widgetdata} 請求同樣回傳 429，而頁面圖表卻正常顯示——顯示的是快取內容。這對研究者有直接的操作意涵：\textbf{Trends 前端會以快取遮蔽失敗的請求，使用者無法從畫面判斷所見數列是否為本次取得的結果}。任何以手動匯出為取得途徑的協定，都必須獨立記錄 response 狀態與 \texttt{raw\_response\_hash}，而不能以「圖表有顯示」作為取得成功的判準；\cref{sec:contract} 要求保存原始 response 的理由於此更為明確。
+
+真正的問題不在等待時間，而在第 4 節對 \texttt{collection\_day} 的定義：它是「一次完整歷史重建」所對應的序數層級，而 G-theory 的 $D$ facet 與\cref{eq:relativeerror}的 $\sigma_{TD}^2$ 都建立在這個層級上。若一次完整重建需時 4.4 小時且會被限流反覆中斷，該 pull 究竟屬於哪一個 collection day 便不再明確；跨越午夜的 pull 更會同時觸及 Djorno et al.（2026）所述的 cache 重置邊界（\cref{rem:cache}），使得同一個 pull 內部的 chunks 來自兩個不同的抽樣批次。這不是量測誤差，而是 facet 定義的失效。
+
+本文因此建議：正式研究應\emph{先}以 \texttt{examples/collect\_google\_trends.py --preview} 估算請求預算，再據以決定 historical window 與 step，使單一 pull 的取得時間短於 cache 週期。以單一年度、180 日 window、30 日 step 計，一個 pull 僅需 8 個 chunks、16 次請求，可在數分鐘內完成——這才是使 collection day 保持為良定義 facet 的設計。以 16.6 年的窗長搭配 15 日 step，在目前的限流下並不可行，本文先前未指出這一點。
+
+第六，受限 GLS weights 的穩定性優於 unrestricted inverse covariance，但其最佳性取決於預先指定 constraint set。應報告 diagonal covariance、empirical covariance、Ledoit--Wolf、unrestricted GLS、equal weights 與 median 的 sensitivity table。
 
 \subsection{必要的穩健性檢驗}
 
