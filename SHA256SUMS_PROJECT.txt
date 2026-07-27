@@ -36,7 +36,7 @@ a8f32e609cc3e0c616e8b241b34b291b89e2d709407557cfcb82da6446988c7d  docs/latex/fig
 6f6c3fb166b093155d954776b881aa9694defbbafc17c3259f2601baf78a8cca  docs/latex/figures/monte_carlo_signal.png
 7c9b47a4d0b897b86dc2aa512e7f535e094cecd39b6a408e394bd631b7ca56d4  docs/latex/math-appendix.en.tex
 19c6dd662d7a8441e1cc320cf3ba46ff3bc142f26d49f496308f1e73a53ef595  docs/latex/math-appendix.zh.tex
-426a3c866485f570ab02e8d2eea7026285f124fbbb9d41a2043250c0be50fe27  docs/latex/methodology.en.tex
+311d14b64af6de9d28c616431b5b19c730b93ab0163500b6e522d6f35c06f81b  docs/latex/methodology.en.tex
 365a45444c91dd72f583af19f8cc9ce912921b88d76fa3d30bfcee82593a16b2  docs/latex/methodology.zh.tex
 d7089551115bf993d34ee3e8b998ac6cc6a775ea6e2d538df6a2d8a5736591f9  docs/latex/protocol.en.tex
 8bdce93a9427159077f1d625bc8d62bfe303080ec1a4b5112b629762e1b9bf16  docs/latex/protocol.zh.tex
@@ -47,8 +47,8 @@ f7594d25a7aff08f4af3264349e26ecfc73acfa65985149de51977f9ae9a6111  docs/pdf/RACER
 3c7fb025d9add7e515e3463384f06cba03055df2f8d12ea7288e2d7877845ef7  docs/pdf/RACER-GT-API-Reference-zh-TW.pdf
 ef6b43751add7c473e236b33df6efe85c28ef02f4b370dd8dd38754c8fc8d3b9  docs/pdf/RACER-GT-Mathematical-Appendix-en.pdf
 cf1d7a4e19d42f183644661c7a711cc2b2a1141f310afa5be189c5fd75729788  docs/pdf/RACER-GT-Mathematical-Appendix-zh-TW.pdf
-12b769a64191f4e8dcee7f610e832c943e91536d2ed584308e91185c52edb3e7  docs/pdf/RACER-GT-Methodology-en.pdf
-4595b91778368f8c35db99211bdd3cb1073b3fd92f834358cc5f44c28d05fed8  docs/pdf/RACER-GT-Methodology-zh-TW.pdf
+2c9f05e327b871799df2cce2cf40ec4aef5a2f39527094e1efb5f5e427d9d1e1  docs/pdf/RACER-GT-Methodology-en.pdf
+c300c6bd0743656f4dac939817c211edaa2e4dd1e4c5a486dc12f66861e69fac  docs/pdf/RACER-GT-Methodology-zh-TW.pdf
 9c2a21bc106f865169d8fc5c8374675f328878461343251e9a8935b4ec6d778f  docs/pdf/RACER-GT-Protocol-and-Preregistration-en.pdf
 abf849abe09f446c4f6f170322a10c63c17430a4c376287cb98a84f7d2258430  docs/pdf/RACER-GT-Protocol-and-Preregistration-zh-TW.pdf
 7dd1935766ea141dec2acc524ff23dd82efe7e27c2a309322c13ffb56ca06976  docs/pdf/RACER-GT-User-Guide-en.pdf
