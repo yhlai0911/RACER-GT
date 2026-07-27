@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "racergt"
-version = "0.1.0"
+version = "1.0.0"
 description = "Randomized acquisition, calibration, error decomposition, and reliability analysis for long-horizon Google Trends data"
 readme = "README.md"
 requires-python = ">=3.10"
@@ -64,3 +64,22 @@ addopts = "-ra"
 [tool.ruff]
 line-length = 100
 target-version = "py310"
+
+# The rule set is pinned explicitly so that a future ruff release cannot turn CI
+# red by widening its defaults. Add rules deliberately, never implicitly.
+[tool.ruff.lint]
+select = ["E", "F", "W", "I", "UP", "B", "C4", "RUF"]
+ignore = [
+  "E501",    # line length is enforced by the formatter, not the linter
+  "B008",    # typer requires function calls (Argument/Option) in defaults
+  "RUF001",  # docstrings legitimately mix CJK and ASCII punctuation
+  "RUF002",
+  "RUF003",
+]
+
+[tool.ruff.lint.per-file-ignores]
+"tests/*" = ["B011"]
+# report.py embeds a Markdown template in a raw string. Two trailing spaces are a
+# Markdown hard line break, so stripping them would silently reflow the generated
+# diagnostic report.
+"src/racergt/report.py" = ["W291"]

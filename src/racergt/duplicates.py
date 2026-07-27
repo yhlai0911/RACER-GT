@@ -94,7 +94,7 @@ def _pair_metrics(
     union = int(np.sum(apos | bpos))
     jaccard = float(np.sum(apos & bpos) / union) if union else 1.0
     return {
-        "n_common": int(len(pair)),
+        "n_common": len(pair),
         "raw_pearson": raw_pearson,
         "raw_spearman": float(spearman) if np.isfinite(spearman) else np.nan,
         "residual_pearson": residual_corr,
@@ -214,7 +214,9 @@ def diagnose_duplicates(
         diameter = int(nx.diameter(sub)) if nx.is_connected(sub) and len(sub) > 1 else 0
         pairs = pairwise[
             pairwise.apply(
-                lambda row: row["pull_a"] in members and row["pull_b"] in members, axis=1
+                lambda row, members=members: row["pull_a"] in members
+                and row["pull_b"] in members,
+                axis=1,
             )
         ]
         clique_size = max((len(c) for c in nx.find_cliques(sub)), default=1)
@@ -268,9 +270,9 @@ def diagnose_duplicates(
     max_component_share = float(components["share_of_pulls"].max()) if not components.empty else 0.0
     summary = {
         "n_pulls": int(matrix.shape[1]),
-        "n_exact_duplicate_groups": int(len(exact_groups)),
+        "n_exact_duplicate_groups": len(exact_groups),
         "n_exact_duplicate_members": int(exact_groups["size"].sum()) if not exact_groups.empty else 0,
-        "n_near_duplicate_components": int(len(components)),
+        "n_near_duplicate_components": len(components),
         "max_component_share": max_component_share,
         "n_near_duplicate_edges": int(graph.number_of_edges()),
         "preliminary_signal": "cross-pull median",

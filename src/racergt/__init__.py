@@ -2,17 +2,17 @@
 
 from .config import RacerGTConfig
 from .consensus import DesignWeightedResult, fit_design_weighted_consensus
-from .design import generate_collection_schedule, generate_chunk_windows
-from .pipeline import RacerGTPipeline, PipelineResult
+from .design import generate_chunk_windows, generate_collection_schedule
+from .pipeline import PipelineResult, RacerGTPipeline
 
 __all__ = [
-    "RacerGTConfig",
     "DesignWeightedResult",
-    "fit_design_weighted_consensus",
-    "RacerGTPipeline",
     "PipelineResult",
-    "generate_collection_schedule",
+    "RacerGTConfig",
+    "RacerGTPipeline",
+    "fit_design_weighted_consensus",
     "generate_chunk_windows",
+    "generate_collection_schedule",
 ]
 
-__version__ = "0.1.0"
+__version__ = "1.0.0"

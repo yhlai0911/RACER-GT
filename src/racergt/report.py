@@ -10,7 +10,6 @@ from jinja2 import Template
 
 from .pipeline import PipelineResult
 
-
 REPORT_TEMPLATE = Template(
     r"""# RACER-GT Diagnostic Report
 

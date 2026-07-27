@@ -1,6 +1,6 @@
 # 資料蒐集與 ingestion workflow
 
-RACER-GT 0.1.0 刻意不內建未經官方保證的 Google Trends scraping。原因是網站端點、認證、rate limit 與服務條款可能改變；將 retrieval client 與統計估計器解耦，可確保研究方法不依賴單一非官方套件。
+RACER-GT 1.0.0 刻意不內建未經官方保證的 Google Trends scraping。原因是網站端點、認證、rate limit 與服務條款可能改變；將 retrieval client 與統計估計器解耦，可確保研究方法不依賴單一非官方套件。
 
 ## 建議流程
 

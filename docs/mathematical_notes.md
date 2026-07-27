@@ -85,7 +85,7 @@ Var(e_t)=Sigma.
 w_GLS = Sigma^{-1}1 / (1'Sigma^{-1}1).
 ```
 
-0.1.0 預設再加上 `w_i>=0` 與 `w_i<=cap`。此時仍保持 sum-to-one，但嚴格 BLUE 性質只屬於無限制解；受限解是穩定化後的最小變異凸組合。
+1.0.0 預設再加上 `w_i>=0` 與 `w_i<=cap`。此時仍保持 sum-to-one，但嚴格 BLUE 性質只屬於無限制解；受限解是穩定化後的最小變異凸組合。
 
 ## 5. Spectral effective pull count
 

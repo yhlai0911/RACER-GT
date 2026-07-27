@@ -6,6 +6,6 @@ authors:
   - family-names: "Lai"
     given-names: "Yi-Hao"
   - name: "RACER-GT contributors"
-version: 0.1.0
+version: 1.0.0
 date-released: 2026-07-27
 license: MIT

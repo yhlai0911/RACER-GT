@@ -153,7 +153,7 @@ def audit_raw_batch(df: pd.DataFrame, config: RacerGTConfig) -> AuditResult:
         )
 
     summary = {
-        "n_rows": int(len(data)),
+        "n_rows": len(data),
         "n_pulls": int(data["pull_id"].nunique()),
         "n_chunks": int(data["chunk_id"].nunique()),
         "n_dates": int(data["historical_date"].nunique()),

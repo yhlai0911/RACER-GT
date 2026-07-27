@@ -40,7 +40,7 @@
 \pagestyle{fancy}
 \fancyhf{}
 \lhead{RACER-GT 方法論與技術報告}
-\rhead{v0.1.0}
+\rhead{v1.0.0}
 \cfoot{\thepage}
 \setstretch{1.32}
 \setlength{\parindent}{2em}
@@ -83,7 +83,7 @@ RACER-GT：在重複抽樣、分段正規化與相依量測下\\
 \large 實驗設計、全域重疊圖校準、廣義信度理論與共變異數調整估計
 }
 \author{Yi-Hao Lai and RACER-GT contributors\\
-\small 方法論與軟體技術報告，版本 0.1.0}
+\small 方法論與軟體技術報告，版本 1.0.0}
 \date{2026 年 7 月 27 日}
 
 \begin{document}
@@ -590,7 +590,7 @@ $\bm Z_t$ 為 $m\times1$ vector。Near duplicates 對應 $\Sigma$ 中較高的 o
 \begin{equation}
 \widehat{se}_0=\sqrt{\widehat{\bm w}'\widehat\Sigma\widehat{\bm w}}.
 \end{equation}
-為反映事件日可能具有較大跨 pull dispersion，0.1.0 版再以當日 absolute deviation median 相對於全期間 median 進行 bounded local multiplier。這是 pragmatic heteroskedastic adjustment，而非完整 Bayesian posterior interval；正式研究可另以 block bootstrap 重新執行全 pipeline。
+為反映事件日可能具有較大跨 pull dispersion，1.0.0 版再以當日 absolute deviation median 相對於全期間 median 進行 bounded local multiplier。這是 pragmatic heteroskedastic adjustment，而非完整 Bayesian posterior interval；正式研究可另以 block bootstrap 重新執行全 pipeline。
 
 \subsection{有效 pull 資訊量}
 
@@ -766,12 +766,12 @@ W_t^{(b,\lambda)}=W_t+\sqrt{\lambda}\,\widehat\sigma_{u,t}\xi_t^{(b)},
 
 \subsection{設計原則}
 
-RACER-GT 0.1.0 採 ingestion-first architecture：統計套件不內建未經官方保證的網站 scraping。網站端點、rate limits、認證與服務條款可能變動，將 retrieval client 與估計器解耦，可使研究者在官方 API、手動 CSV export 或機構核准的 collector 間替換，而不改變統計 protocol。Collector 只需輸出固定 long-format schema。
+RACER-GT 1.0.0 採 ingestion-first architecture：統計套件不內建未經官方保證的網站 scraping。網站端點、rate limits、認證與服務條款可能變動，將 retrieval client 與估計器解耦，可使研究者在官方 API、手動 CSV export 或機構核准的 collector 間替換，而不改變統計 protocol。Collector 只需輸出固定 long-format schema。
 
 核心模組如\cref{tab:modules}。
 
 \begin{longtable}{p{3.5cm}p{10.5cm}}
-\caption{RACER-GT 0.1.0 模組}\label{tab:modules}\\
+\caption{RACER-GT 1.0.0 模組}\label{tab:modules}\\
 \toprule
 模組 & 功能\\
 \midrule
@@ -923,11 +923,11 @@ Downstream model & 主結果使用 final consensus；另以 sample-specific pull
 
 第一，若 Google 對所有 pulls 施加相同且隨時間變動的系統性演算法偏誤，重複量測無法僅靠平均或 GLS 識別；這是 common-mode bias。可利用 API overlap period、外部搜尋資料、新聞／交易事件與不同 query formulations 進行 external validation，但仍不是絕對真值。
 
-第二，零值可能混合真實零搜尋、privacy threshold、sampling 與 rounding。RACER-GT 0.1.0 將零值保留並分離 detection reliability，但尚未內建 interval-censored latent count likelihood。對高 zero-share term，降為週頻、改用較廣 Topic 或 anchor-bank calibration，通常比強制製造日頻值更合理。
+第二，零值可能混合真實零搜尋、privacy threshold、sampling 與 rounding。RACER-GT 1.0.0 將零值保留並分離 detection reliability，但尚未內建 interval-censored latent count likelihood。對高 zero-share term，降為週頻、改用較廣 Topic 或 anchor-bank calibration，通常比強制製造日頻值更合理。
 
 第三，G-theory 的 balanced method-of-moments 易於解釋，卻在 unbalanced missingness、負 variance components 或非 Gaussian binary detection 下不如 generalized linear mixed models。正式論文可將本實作作 preregistered primary estimator，再以 REML／Bayesian hierarchical model 作 robustness。
 
-第四，benchmark 後的 0.1.0 信賴區間主要保留 cross-pull measurement uncertainty，尚未完整傳播 benchmark noise、scale calibration uncertainty 與 tuning-parameter uncertainty。最嚴謹方式是 nested moving-block bootstrap：每次重抽 historical blocks、重新估 edges、scales、duplicates、covariance、weights 與 benchmark，最後再重估財金模型。
+第四，benchmark 後的 1.0.0 信賴區間主要保留 cross-pull measurement uncertainty，尚未完整傳播 benchmark noise、scale calibration uncertainty 與 tuning-parameter uncertainty。最嚴謹方式是 nested moving-block bootstrap：每次重抽 historical blocks、重新估 edges、scales、duplicates、covariance、weights 與 benchmark，最後再重估財金模型。
 
 第五，受限 GLS weights 的穩定性優於 unrestricted inverse covariance，但其最佳性取決於預先指定 constraint set。應報告 diagonal covariance、empirical covariance、Ledoit--Wolf、unrestricted GLS、equal weights 與 median 的 sensitivity table。
 
@@ -966,7 +966,7 @@ RACER-GT 並非取代既有研究，而是把其可互補部分放入同一個�
 
 \begin{longtable}{p{4.7cm}p{3.2cm}p{6.0cm}}
 \toprule
-Rule & 0.1.0 example & 解釋\\
+Rule & 1.0.0 example & 解釋\\
 \midrule
 Minimum unique pulls & 12 & Exact-collapse 後的不同 numeric vectors。\\
 Spectral effective pulls & 4 & 相依性調整的資訊濃度下限。\\

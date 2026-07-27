@@ -1,5 +1,4 @@
 import numpy as np
-import pandas as pd
 
 from racergt.overlap import OverlapGraphCalibrator
 from racergt.simulation import SimulationSettings, simulate_racergt_data

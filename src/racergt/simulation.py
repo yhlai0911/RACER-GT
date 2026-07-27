@@ -76,7 +76,7 @@ def _period_benchmark(
     else:
         raise ValueError(freq)
     rows = []
-    for period, group in groups:
+    for _period, group in groups:
         start = max(group.index.min(), dates.min())
         end = min(group.index.max(), dates.max())
         value = float(group.mean() + rng.normal(0.0, noise_sd))

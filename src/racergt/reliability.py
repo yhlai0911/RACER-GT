@@ -75,7 +75,7 @@ def _pairwise_reliability(matrix: pd.DataFrame) -> pd.DataFrame:
             {
                 "pull_a": str(a),
                 "pull_b": str(b),
-                "n_common": int(len(pair)),
+                "n_common": len(pair),
                 "level_pearson": pearson,
                 "level_spearman": spearman,
                 "innovation_pearson": innovation_corr,

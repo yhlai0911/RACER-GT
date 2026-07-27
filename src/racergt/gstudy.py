@@ -8,7 +8,6 @@ import pandas as pd
 
 from .config import GStudyConfig
 
-
 COMPONENT_NAMES = ["T", "D", "S", "TD", "TS", "DS", "TDS", "E"]
 
 
@@ -102,9 +101,6 @@ def _anova_and_components(
     a, b, c, r = _balanced_layout(frame)
     keys = ["historical_date", "collection_day", "stream_id"]
     cell = frame.groupby(keys, as_index=False)["g_value"].mean()
-    y = cell.pivot_table(
-        index="historical_date", columns=["collection_day", "stream_id"], values="g_value"
-    )
     # Construct a dense a x b x c array in deterministic order.
     t_vals = sorted(cell["historical_date"].unique())
     d_vals = sorted(cell["collection_day"].unique())
@@ -318,9 +314,9 @@ def run_gstudy(
     nr = diagnostics["n_replicates"]
     coefficients = generalizability_coefficients(components, nd, ns, nr)
 
-    day_grid = d_day_grid or sorted(set([1, 2, 3, nd, max(nd + 2, 7)]))
-    stream_grid = d_stream_grid or sorted(set([1, 2, ns, max(ns + 1, 4)]))
-    replicate_grid = d_replicate_grid or sorted(set([1, nr, max(nr + 1, 2)]))
+    day_grid = d_day_grid or sorted({1, 2, 3, nd, max(nd + 2, 7)})
+    stream_grid = d_stream_grid or sorted({1, 2, ns, max(ns + 1, 4)})
+    replicate_grid = d_replicate_grid or sorted({1, nr, max(nr + 1, 2)})
     d_study = make_d_study(components, day_grid, stream_grid, replicate_grid)
     bootstrap = _block_bootstrap(transformed, config, nd, ns, nr)
     if not bootstrap.empty:

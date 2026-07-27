@@ -1,9 +1,9 @@
 from __future__ import annotations
 
 import json
-from datetime import date, datetime, timedelta
+from collections.abc import Sequence
+from datetime import date, datetime
 from pathlib import Path
-from typing import Sequence
 
 import numpy as np
 import pandas as pd

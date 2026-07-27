@@ -56,4 +56,4 @@
 | `n_available_pulls` | 當日可用 unique pulls 數 |
 | `benchmark_correction` | lower-frequency calibration 修正量 |
 
-Benchmark 後信賴區間保留 cross-pull uncertainty，但 0.1.0 版尚未把 benchmark 本身的不確定性完整傳播到 interval；正式推論應另作 bootstrap 或 joint state-space sensitivity analysis。
+Benchmark 後信賴區間保留 cross-pull uncertainty，但 1.0.0 版尚未把 benchmark 本身的不確定性完整傳播到 interval；正式推論應另作 bootstrap 或 joint state-space sensitivity analysis。

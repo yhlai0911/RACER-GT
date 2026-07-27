@@ -4,7 +4,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## 專案性質
 
-RACER-GT 0.1.0 是**研究型軟體**：一個 Python 套件（`src/racergt/`）加上一篇隨附的繁體中文方法論論文（`paper/RACER_GT_Methodology_zh_TW.tex/.pdf`，31 頁）。套件把 Google Trends 資料取得視為可預先註冊的重複量測實驗，估計「共同尺度下的潛在相對搜尋訊號」。
+RACER-GT 1.0.0 是**研究型軟體**：一個 Python 套件（`src/racergt/`）加上一篇隨附的繁體中文方法論論文（`paper/RACER_GT_Methodology_zh_TW.tex/.pdf`，31 頁）。套件把 Google Trends 資料取得視為可預先註冊的重複量測實驗，估計「共同尺度下的潛在相對搜尋訊號」。
 
 三個影響日常工作的事實：
 
@@ -143,12 +143,12 @@ audit_raw_batch ──(可 raise)──▶ coerce_raw_chunks
 ## 修改後的維護動作
 
 - `SHA256SUMS_PROJECT.txt` 是 release 完整性清單，涵蓋 61 個檔案，目前全部相符（`shasum -a 256 -c SHA256SUMS_PROJECT.txt`）。**沒有腳本會自動重生**，是發布時手動產生的。任何原始檔改動都會讓它失效——修改後要嘛重新產生，要嘛在說明中明確指出它已過期。
-- 版本號 `0.1.0` 出現在 `pyproject.toml`、`src/racergt/__init__.py` 的 `__version__`、`CHANGELOG.md`、`RELEASE_NOTES.md`、`RELEASE_VALIDATION.md`。改版時要一起動。
+- 版本號 `1.0.0` 出現在 `pyproject.toml`、`src/racergt/__init__.py` 的 `__version__`、`CHANGELOG.md`、`RELEASE_NOTES.md`、`RELEASE_VALIDATION.md`。改版時要一起動。
 - `dist/` 內的 wheel 與 sdist 是舊版建置產物，改了 `src/` 之後它們就過期了；`make build` 前會先 `make clean`。
 
 ## 已知的範圍限制（寫進論文與 README，不要無意間宣稱超出）
 
 - 本套件**不內建 Google Trends scraper**，這是刻意的 ingestion-first 設計（服務條款與端點會變）。不要新增未經官方保證的抓取程式。
-- 0.1.0 的 G-study 用平衡設計的動差法估變異成分；不平衡設計的 REML 是未來擴充。
+- 1.0.0 的 G-study 用平衡設計的動差法估變異成分；不平衡設計的 REML 是未來擴充。
 - consensus 的信賴區間是條件式近似；正式推論需 full-pipeline block bootstrap。
 - PASS 只代表該批資料通過已鎖定的量測規則，不代表關鍵字具 construct validity，也不代表可作因果解釋。

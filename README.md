@@ -22,7 +22,7 @@ RACER-GT 是一套用於建構長期、日頻 Google Trends（GT）相對搜尋�
 由 wheel 安裝：
 
 ```bash
-python -m pip install racergt-0.1.0-py3-none-any.whl
+python -m pip install racergt-1.0.0-py3-none-any.whl
 ```
 
 由原始碼安裝：
@@ -254,4 +254,4 @@ monte_carlo_results/ 受控模擬逐次結果
 
 ## 授權與引用
 
-MIT License。引用格式見 `CITATION.cff`。本版本為研究軟體 0.1.0；使用於正式論文前，應以研究關鍵字、地區與樣本期重新進行 simulation calibration、construct-validity review 與 preregistration。
+MIT License。引用格式見 `CITATION.cff`。本版本為研究軟體 1.0.0；使用於正式論文前，應以研究關鍵字、地區與樣本期重新進行 simulation calibration、construct-validity review 與 preregistration。

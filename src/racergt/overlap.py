@@ -1,7 +1,7 @@
 from __future__ import annotations
 
+from collections.abc import Iterable
 from dataclasses import dataclass
-from typing import Iterable
 
 import networkx as nx
 import numpy as np
@@ -166,8 +166,8 @@ class OverlapGraphCalibrator:
                         log_ratio=float(loc),
                         variance=var,
                         robust_scale=float(scale),
-                        n_overlap=int(len(common)),
-                        n_usable=int(len(usable)),
+                        n_overlap=len(common),
+                        n_usable=len(usable),
                         mean_abs_residual=float(np.mean(np.abs(diffs - loc))),
                     )
                 )
@@ -339,7 +339,7 @@ class OverlapGraphCalibrator:
                 se = 1.4826 * mad / np.sqrt(max(values.size, 1))
                 n_chunks = int(values.size)
             elif self.config.aggregation == "huber":
-                value, robust_scale, var_loc = huber_location(
+                value, _robust_scale, var_loc = huber_location(
                     values,
                     c=self.config.huber_c,
                     max_iter=self.config.max_huber_iter,

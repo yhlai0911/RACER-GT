@@ -58,7 +58,7 @@ def build_aggregation_matrix(
     col_indices: list[int] = []
     values: list[float] = []
     retained_rows: list[int] = []
-    for new_row, (old_idx, row) in enumerate(bench.iterrows()):
+    for _new_row, (old_idx, row) in enumerate(bench.iterrows()):
         dates = daily_dates[(daily_dates >= row["period_start"]) & (daily_dates <= row["period_end"])]
         if len(dates) == 0 or not np.isfinite(row["value"]):
             continue

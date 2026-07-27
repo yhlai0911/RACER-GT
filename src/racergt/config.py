@@ -28,7 +28,7 @@ class QuerySpec(BaseModel):
     baseline_end: date | None = None
 
     @model_validator(mode="after")
-    def validate_dates(self) -> "QuerySpec":
+    def validate_dates(self) -> QuerySpec:
         if self.historical_end < self.historical_start:
             raise ValueError("historical_end must not precede historical_start")
         if self.baseline_start is None:
@@ -93,7 +93,7 @@ class ChunkingConfig(BaseModel):
     inclusive_end: bool = True
 
     @model_validator(mode="after")
-    def validate_chunking(self) -> "ChunkingConfig":
+    def validate_chunking(self) -> ChunkingConfig:
         if self.window_days < 30:
             raise ValueError("window_days must be at least 30")
         if self.step_days < 1 or self.step_days >= self.window_days:
@@ -122,7 +122,7 @@ class CalibrationConfig(BaseModel):
     allow_disconnected: bool = False
 
     @model_validator(mode="after")
-    def validate_reference(self) -> "CalibrationConfig":
+    def validate_reference(self) -> CalibrationConfig:
         if self.reference_strategy == "explicit" and not self.explicit_reference_chunk:
             raise ValueError("explicit_reference_chunk is required for explicit reference strategy")
         return self
@@ -244,7 +244,7 @@ class RacerGTConfig(BaseModel):
         return path
 
     @classmethod
-    def load_yaml(cls, path: str | Path) -> "RacerGTConfig":
+    def load_yaml(cls, path: str | Path) -> RacerGTConfig:
         raw = yaml.safe_load(Path(path).read_text(encoding="utf-8"))
         expected_hash = raw.pop("protocol_hash", None)
         config = cls.model_validate(raw)

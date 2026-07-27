@@ -1,4 +1,4 @@
-# RACER-GT 0.1.0 release notes
+# RACER-GT 1.0.0 release notes
 
 Release date: 2026-07-27
 
@@ -33,6 +33,6 @@ This is a research-software release for constructing a common-scale, long-horizo
 
 - The statistical pipeline is ingestion-first and intentionally does not embed an unofficial Google Trends scraper.
 - Strict unbiasedness/efficiency claims are conditional on the assumptions stated in the manuscript.
-- Version 0.1.0 uses balanced method-of-moments G-study components; REML is a planned extension for unbalanced designs.
+- Version 1.0.0 uses balanced method-of-moments G-study components; REML is a planned extension for unbalanced designs.
 - Consensus confidence intervals are conditional approximations; full-pipeline block bootstrap is recommended for confirmatory inference.
-- Anchor-bank calibration across different queries is documented as an extension but is not implemented in 0.1.0.
+- Anchor-bank calibration across different queries is documented as an extension but is not implemented in 1.0.0.

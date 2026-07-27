@@ -1,6 +1,6 @@
 # RACER-GT Python API reference
 
-This document summarizes the stable public workflow in version 0.1.0. Lower-level functions remain available for methodological diagnostics but may evolve more quickly than the pipeline interface.
+This document summarizes the stable public workflow in version 1.0.0. Lower-level functions remain available for methodological diagnostics but may evolve more quickly than the pipeline interface.
 
 ## Top-level API
 
