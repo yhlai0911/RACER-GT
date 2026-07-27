@@ -1,81 +1,9 @@
+% RACER-GT methodology manuscript (Traditional Chinese).
+% Build:  python scripts/build_docs.py --only methodology --lang zh
+% Shared font, package and theorem setup lives in _preamble-zh.tex.
 \documentclass[12pt,a4paper,oneside]{article}
-
-\usepackage[margin=2.35cm,headheight=15pt]{geometry}
-\usepackage{fontspec}
-\usepackage{xeCJK}
-\setmainfont{Noto Serif}
-\setsansfont{Noto Sans}
-\setmonofont{Noto Sans Mono}
-\setCJKmainfont{Noto Serif CJK TC}
-\setCJKsansfont{Noto Sans CJK TC}
-\setCJKmonofont{Noto Sans CJK TC}
-\XeTeXlinebreaklocale "zh"
-\XeTeXlinebreakskip = 0pt plus 1pt
-
-\usepackage{amsmath,amssymb,amsthm,mathtools,bm}
-\usepackage{booktabs,longtable,tabularx,array,multirow}
-\usepackage{graphicx,float,caption,subcaption}
-\usepackage{enumitem}
-\usepackage{xcolor}
-\usepackage{microtype}
-\usepackage{setspace}
-\usepackage{fancyhdr}
-\usepackage{hyperref}
-\usepackage[nameinlink,noabbrev]{cleveref}
-\usepackage{algorithm}
-\usepackage{algpseudocode}
-\usepackage{listings}
-\usepackage{tikz}
-\usetikzlibrary{arrows.meta,positioning,shapes.geometric,fit,calc}
-
-\hypersetup{
-  colorlinks=true,
-  linkcolor=black,
-  citecolor=black,
-  urlcolor=blue,
-  pdftitle={RACER-GT 方法論與 Python 套件技術報告},
-  pdfauthor={Yi-Hao Lai and RACER-GT contributors}
-}
-
-\pagestyle{fancy}
-\fancyhf{}
+\input{_preamble-zh}
 \lhead{RACER-GT 方法論與技術報告}
-\rhead{v1.0.0}
-\cfoot{\thepage}
-\setstretch{1.32}
-\setlength{\parindent}{2em}
-\setlength{\parskip}{0.35em}
-\setlist[itemize]{leftmargin=2em,itemsep=0.25em,topsep=0.3em}
-\setlist[enumerate]{leftmargin=2.2em,itemsep=0.25em,topsep=0.3em}
-
-\newtheorem{assumption}{假設}[section]
-\newtheorem{proposition}{命題}[section]
-\newtheorem{corollary}{推論}[section]
-\newtheorem{remark}{說明}[section]
-\newtheorem{definition}{定義}[section]
-
-\newcommand{\E}{\mathbb{E}}
-\newcommand{\Var}{\operatorname{Var}}
-\newcommand{\Cov}{\operatorname{Cov}}
-\newcommand{\tr}{\operatorname{tr}}
-\newcommand{\plim}{\operatorname*{plim}}
-\newcommand{\R}{\mathbb{R}}
-\newcommand{\one}{\bm{1}}
-\newcommand{\diag}{\operatorname{diag}}
-\newcommand{\argmin}{\operatorname*{arg\,min}}
-\newcommand{\RACER}{\textsc{Racer-GT}}
-
-\lstset{
-  basicstyle=\ttfamily\small,
-  frame=single,
-  breaklines=true,
-  columns=fullflexible,
-  showstringspaces=false,
-  keywordstyle=\bfseries,
-  commentstyle=\itshape,
-  xleftmargin=0.5em,
-  xrightmargin=0.5em
-}
 
 \title{\bfseries
 RACER-GT：在重複抽樣、分段正規化與相依量測下\\

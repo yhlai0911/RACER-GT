@@ -1,0 +1,40 @@
+% Traditional Chinese setup. Compile with XeLaTeX.
+\usepackage{fontspec}
+\usepackage{xeCJK}
+\setmainfont{Noto Serif}
+\setsansfont{Noto Sans}
+\setmonofont{Noto Sans Mono}
+\setCJKmainfont{Noto Serif CJK TC}
+\setCJKsansfont{Noto Sans CJK TC}
+\setCJKmonofont{Noto Sans CJK TC}
+\XeTeXlinebreaklocale "zh"
+\XeTeXlinebreakskip = 0pt plus 1pt
+
+\input{_meta}
+\input{_common}
+
+\setlength{\parindent}{2em}
+
+\newtheorem{assumption}{假設}[section]
+\newtheorem{proposition}{命題}[section]
+\newtheorem{corollary}{推論}[section]
+\newtheorem{remark}{說明}[section]
+\newtheorem{definition}{定義}[section]
+\newtheorem{lemma}{引理}[section]
+
+\renewcommand{\proofname}{證明}
+\renewcommand{\abstractname}{摘要}
+\renewcommand{\contentsname}{目錄}
+\renewcommand{\refname}{參考文獻}
+\renewcommand{\tablename}{表}
+\renewcommand{\figurename}{圖}
+
+\crefname{assumption}{假設}{假設}
+\crefname{proposition}{命題}{命題}
+\crefname{corollary}{推論}{推論}
+\crefname{definition}{定義}{定義}
+\crefname{lemma}{引理}{引理}
+\crefname{equation}{式}{式}
+\crefname{table}{表}{表}
+\crefname{figure}{圖}{圖}
+\crefname{section}{節}{節}

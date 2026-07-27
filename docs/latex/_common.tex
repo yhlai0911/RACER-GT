@@ -1,0 +1,79 @@
+% Shared package set and mathematical macros for every RACER-GT document,
+% in both languages. Language-specific font and theorem-name setup lives in
+% _preamble-zh.tex and _preamble-en.tex.
+%
+% Font policy: the build depends only on the five Noto families below. They are
+% installable on Linux CI (fonts-noto-core, fonts-noto-cjk) and on macOS via
+% Homebrew casks. Do not introduce a font outside this set without adding it to
+% .github/workflows/docs.yml as well, or the PDF build stops being reproducible.
+
+\usepackage[margin=2.35cm,headheight=15pt]{geometry}
+\usepackage{amsmath,amssymb,amsthm,mathtools,bm}
+\usepackage{booktabs,longtable,tabularx,array,multirow}
+\usepackage{graphicx,float,caption,subcaption}
+\usepackage{enumitem}
+\usepackage{xcolor}
+\usepackage{microtype}
+\usepackage{setspace}
+\usepackage{fancyhdr}
+\usepackage{hyperref}
+\usepackage[nameinlink,noabbrev]{cleveref}
+\usepackage{algorithm}
+\usepackage{algpseudocode}
+\usepackage{listings}
+\usepackage{tikz}
+\usetikzlibrary{arrows.meta,positioning,shapes.geometric,fit,calc}
+
+\hypersetup{
+  colorlinks=true,
+  linkcolor=black,
+  citecolor=black,
+  urlcolor=blue,
+  pdfauthor={\racerauthor}
+}
+
+\pagestyle{fancy}
+\fancyhf{}
+\rhead{v\racerversion}
+\cfoot{\thepage}
+\setstretch{1.28}
+\setlength{\parskip}{0.35em}
+\setlist[itemize]{leftmargin=2em,itemsep=0.25em,topsep=0.3em}
+\setlist[enumerate]{leftmargin=2.2em,itemsep=0.25em,topsep=0.3em}
+
+% ---------------------------------------------------------------- mathematics
+\newcommand{\E}{\mathbb{E}}
+\newcommand{\Var}{\operatorname{Var}}
+\newcommand{\Cov}{\operatorname{Cov}}
+\newcommand{\tr}{\operatorname{tr}}
+\newcommand{\diag}{\operatorname{diag}}
+\newcommand{\argmin}{\operatorname*{arg\,min}}
+\newcommand{\argmax}{\operatorname*{arg\,max}}
+\newcommand{\one}{\bm{1}}
+\newcommand{\Rset}{\mathbb{R}}
+\newcommand{\R}{\mathbb{R}}
+\newcommand{\plim}{\operatorname*{plim}}
+\newcommand{\RACER}{\textsc{Racer-GT}}
+\newcommand{\indic}[1]{\mathbb{I}\!\left\{#1\right\}}
+\newcommand{\Sig}{\bm{\Sigma}}
+\newcommand{\wvec}{\bm{w}}
+\newcommand{\evec}{\bm{e}}
+\newcommand{\Zvec}{\bm{Z}}
+
+% Design facets, used identically in both languages so that a reader can move
+% between the Chinese and English documents without re-learning notation.
+\newcommand{\facetT}{\mathcal{T}}   % historical date
+\newcommand{\facetD}{\mathcal{D}}   % collection day
+\newcommand{\facetS}{\mathcal{S}}   % collection stream
+\newcommand{\facetR}{\mathcal{R}}   % technical replicate
+
+\lstset{
+  basicstyle=\ttfamily\footnotesize,
+  breaklines=true,
+  frame=single,
+  rulecolor=\color{gray!40},
+  backgroundcolor=\color{gray!5},
+  columns=fullflexible,
+  keepspaces=true,
+  showstringspaces=false
+}

@@ -10,14 +10,27 @@ dist/
 .venv/
 venv/
 .DS_Store
-paper/*.aux
-paper/*.log
-paper/*.out
-paper/*.toc
-paper/*.xdv
-paper/*.fls
-paper/*.fdb_latexmk
+docs/latex/*.aux
+docs/latex/*.log
+docs/latex/*.out
+docs/latex/*.toc
+docs/latex/*.xdv
+docs/latex/*.fls
+docs/latex/*.fdb_latexmk
 
 # 本機環境
 .venv/
 *.synctex.gz
+
+# LaTeX build artifacts (sources under docs/latex are tracked on purpose:
+# without them the published PDFs cannot be rebuilt or archived by Zenodo)
+docs/latex/*.aux
+docs/latex/*.log
+docs/latex/*.out
+docs/latex/*.toc
+docs/latex/*.xdv
+docs/latex/*.fls
+docs/latex/*.fdb_latexmk
+docs/latex/*.synctex.gz
+docs/latex/*.lof
+docs/latex/*.lot
