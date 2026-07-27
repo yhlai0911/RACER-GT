@@ -1165,6 +1165,50 @@ extension but is not implemented in version \racerversion{}.
 \item The package is deliberately ingestion-first and embeds no unofficial
 scraper, because endpoints, rate limits, authentication, and terms of service
 change. Collectors need only emit the documented long-format schema.
+\item \textbf{Retrieval rate limiting is a binding constraint, and it undermines
+the design rather than merely slowing it.} The confirmatory protocol recommended
+above --- from 2010, 180-day windows, 15--30 day steps, 21--42 pulls --- implies a
+request budget that was never stated. At a 15-day step a single pull spans 393
+chunks, and each chunk costs two requests (explore for a token, then
+widgetdata), so one pull is 786 requests, 21 pulls is $16{,}506$, and 42 pulls is
+$33{,}012$. At a conservative 20-second spacing those are roughly 92 and 183
+hours of continuous retrieval; even one pull takes about 4.4 hours.
+
+Google Trends rate limits this aggressively. In one test the explore endpoint
+returned 200 while the \emph{second} widgetdata request returned HTTP 429, and a
+retry 30 seconds later returned 429 again. A single observation cannot quantify
+Google's policy, which may vary with address, time of day, account state, and
+request pattern, but it is enough to establish that acquisition feasibility is
+not a detail that can be left to the collector.
+
+The limit is not confined to programmatic access. Loading the Trends web page in
+an ordinary signed-in browser during the same period, by hand, produced a 429 on
+the front end's \emph{own} \texttt{widgetdata} request while the chart rendered
+normally from cache. That has an immediate operational consequence:
+\textbf{the Trends front end masks failed requests with cached content, so a user
+cannot tell from the screen whether the series shown was actually retrieved in
+this session}. Any protocol that relies on manual export must record the response
+status and \texttt{raw\_response\_hash} independently rather than treating a
+rendered chart as evidence of successful retrieval. This sharpens the reason the
+adapter contract insists on preserving the raw response.
+
+The damage is not the waiting. \Cref{sec:design} defines \texttt{collection\_day}
+as the ordinal level of one complete historical reconstruction, and both the $D$
+facet of the G-study and $\sigma^2_{TD}$ rest on that level. If one complete
+reconstruction takes 4.4 hours and is repeatedly interrupted by throttling, which
+collection day a pull belongs to stops being well defined; a pull that crosses
+midnight additionally straddles the cache reset described by
+\citet{Djorno2026} (\cref{rem:cache}), so its chunks come from two different
+sampling batches. That is not measurement error, it is the failure of a facet
+definition.
+
+The remedy is to size the window against the limit rather than the other way
+round. \texttt{examples/collect\_google\_trends.py --preview} prints the request
+budget before any data are collected, and a single year with a 180-day window and
+a 30-day step needs 8 chunks and 16 requests per pull, completing in minutes ---
+short enough to keep the collection day well defined. A 16.6-year window at a
+15-day step is not currently feasible, and earlier versions of this paper did not
+say so.
 \end{itemize}
 
 % =============================================================================
