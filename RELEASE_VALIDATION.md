@@ -1,70 +1,144 @@
-# RACER-GT 0.1.0 release validation
+# RACER-GT 1.0.0 release validation
 
 Validation date: 2026-07-27
 
+Every figure below was produced by running the stated command on the tagged
+tree. Where a result differs from the 0.1.0 release, the difference is stated
+rather than smoothed over.
+
 ## Source tests
 
-```text
+```
+PYTHONPATH=src pytest -q
 .........                                                                [100%]
 9 passed
 ```
 
-Coverage of the current tests:
+Coverage: collection schedule and chunk design; global overlap-graph
+calibration; exact-duplicate diagnostics; design-cell weighted reference
+estimator; covariance-adjusted consensus; crossed-facet G-study; temporal
+benchmark; measurement-error correction; end-to-end pipeline.
 
-- collection schedule and chunk design;
-- global overlap-graph calibration;
-- exact-duplicate diagnostics;
-- design-cell weighted reference estimator;
-- covariance-adjusted consensus;
-- crossed-facet G-study;
-- temporal benchmark;
-- measurement-error correction;
-- end-to-end pipeline.
+## Lint
 
-## Built-distribution test
-
-The final wheel was installed into a fresh target directory with `--no-deps`, while dependencies were supplied by the validation runtime. The following public imports were verified:
-
-```text
-racergt.__version__ == 0.1.0
-RacerGTConfig
-RacerGTPipeline
-fit_design_weighted_consensus
+```
+ruff check src tests examples scripts
+All checks passed!
 ```
 
-The installed CLI exposed:
+The rule set is pinned explicitly in `pyproject.toml` (`E,F,W,I,UP,B,C4,RUF`)
+rather than inherited from ruff's defaults, which widened between releases and
+produced 45 violations on a previously clean tree. Two ignores are deliberate
+and documented at their definition: `B008` (typer requires `Argument()` and
+`Option()` calls in parameter defaults) and `W291` in `report.py` (two trailing
+spaces are a Markdown hard line break; stripping them reflows the generated
+report).
 
-```text
-design, audit, run, simulate, export-stata
-```
+## Continuous integration
 
-A full installed-wheel simulation completed successfully and returned `PASS`. It produced both:
+All workflows green on `main`:
 
-- `consensus/design_weighted_consensus.csv`;
-- `RACER_GT_final_series.csv`.
+- `tests` — pytest on Python 3.10, 3.11, 3.12, 3.13 (Ubuntu) and 3.12 (macOS),
+  plus ruff and a CLI `simulate` smoke test asserting the pipeline still writes
+  `RACER_GT_final_series.csv` and `consensus/design_weighted_consensus.csv`.
+- `docs` — all ten PDFs built on a full TeX Live, with an explicit font-presence
+  check and a minimum-page-count assertion.
+- `release` — not yet exercised; it triggers on a `v*` tag.
+
+The first `docs` run failed: `texlive-xetex` does not ship `xeCJK`, so all three
+English documents built and all three Chinese ones failed. Fixed by installing
+`texlive-lang-chinese` and adding a `kpsewhich` check so the failure reports
+itself in one line.
+
+## Documents
+
+Ten documents, five in each language, all built by `python scripts/build_docs.py`
+from sources in `docs/latex`:
+
+| PDF | Pages |
+|---|---:|
+| `RACER-GT-Methodology-en.pdf` | 20 |
+| `RACER-GT-Methodology-zh-TW.pdf` | 30 |
+| `RACER-GT-Mathematical-Appendix-en.pdf` | 9 |
+| `RACER-GT-Mathematical-Appendix-zh-TW.pdf` | 8 |
+| `RACER-GT-User-Guide-en.pdf` | 8 |
+| `RACER-GT-User-Guide-zh-TW.pdf` | 7 |
+| `RACER-GT-API-Reference-en.pdf` | 6 |
+| `RACER-GT-API-Reference-zh-TW.pdf` | 5 |
+| `RACER-GT-Protocol-and-Preregistration-en.pdf` | 5 |
+| `RACER-GT-Protocol-and-Preregistration-zh-TW.pdf` | 4 |
+
+All A4 (595.28 × 841.89 pt), unencrypted, with Traditional Chinese and
+mathematics rendering correctly under visual inspection.
+
+### Correction to the 0.1.0 validation record
+
+The 0.1.0 record reported a 31-page Chinese manuscript. That PDF could not be
+rebuilt from a clean checkout: its preamble required `DejaVu Sans Mono` and
+`Noto Sans Mono CJK TC`, neither of which is obtainable from the same font set
+as the other four families, so the published PDF had been compiled on a machine
+whose font state was not reproducible. Both are now replaced by families the
+document already required. The text is unmodified; the manuscript is one page
+shorter because the monospace font metrics changed.
+
+The document set now depends only on five Noto families, all installable on
+Linux CI via `fonts-noto-core` and `fonts-noto-cjk`.
 
 ## Controlled Monte Carlo
 
-Twenty replications are stored in `monte_carlo_results/replication_metrics.csv`. The summary is:
+Twenty replications re-run on this tree (`examples/run_monte_carlo.py`):
 
-| Estimator | Mean RMSE | Mean correlation | Mean innovation correlation | Mean peak recall |
+| Estimator | Mean RMSE | Mean corr. | Mean innov. corr. | Mean peak recall |
 |---|---:|---:|---:|---:|
 | Single pull | 7.230524 | 0.969502 | 0.886907 | 0.886842 |
 | Cross-pull median | 4.170974 | 0.989829 | 0.955615 | 0.944737 |
 | Simple mean | 3.725331 | 0.991879 | 0.974724 | 0.952632 |
 | RACER-GT | 3.526473 | 0.992743 | 0.974451 | 0.952632 |
 
-Under this particular DGP, RACER-GT reduces mean RMSE by approximately 51.2% relative to a single pull and 5.3% relative to a simple mean. It does not dominate the simple mean on every reported statistic: the mean innovation correlation is marginally lower, while peak recall is equal. These simulations are a controlled software/method check, not a universal performance guarantee.
+RACER-GT reduces mean RMSE by approximately 51.2% relative to a single pull and
+5.3% relative to the simple mean. It does **not** dominate on every reported
+statistic: mean innovation correlation is marginally lower and peak recall is
+equal. The gain concentrates in level accuracy.
 
-## PDF preflight
+### Reproducibility tolerance
 
-- File: `paper/RACER_GT_Methodology_zh_TW.pdf`
-- Pages: 31
-- Page size: A4
-- Encryption: none
-- Embedded Traditional Chinese fonts render correctly in the validation renderer.
-- All 31 pages were rendered to PNG after the final compilation; the title, equations, algorithm, module table, figures, and final reference page were visually inspected for clipping or broken glyphs.
+The re-run reproduces every published 0.1.0 figure **to ten significant
+digits**, not bit-for-bit. Example, RACER-GT mean RMSE:
+
+```
+0.1.0 published:  3.5264731591912244
+1.0.0 re-run:     3.52647315907353
+```
+
+The disagreement appears at the eleventh significant digit and comes from
+floating-point summation order in the linear-algebra backend, which varies
+between runs. It is far below any reported precision. An earlier draft of the
+1.0.0 changelog claimed bit-for-bit reproducibility; that claim was wrong and
+has been corrected.
+
+## Distributions
+
+`python -m build` produces `racergt-1.0.0-py3-none-any.whl` and
+`racergt-1.0.0.tar.gz`; `twine check` passes on both.
+
+## Integrity manifest
+
+`SHA256SUMS_PROJECT.txt` is generated by `make checksums` from `git ls-files`,
+so the manifest cannot drift from the repository. The 0.1.0 manifest had no
+generator and was produced by hand. All tracked files verify:
+
+```
+shasum -a 256 -c SHA256SUMS_PROJECT.txt
+```
 
 ## Interpretation limits
 
-Passing these software checks does not validate a substantive keyword construct or prove an undisclosed Google sampling mechanism. Empirical use still requires a locked protocol, complete raw-response archive, construct-validity assessment, temporal-information alignment, and sensitivity analysis under the assumptions stated in the methodology manuscript.
+Passing these software checks does not validate a substantive keyword construct
+and does not prove anything about Google's undisclosed sampling mechanism.
+Empirical use still requires a locked protocol, a complete raw-response archive,
+construct-validity assessment, temporal-information alignment, and sensitivity
+analysis under the assumptions stated in the methodology manuscript.
+
+**No real Google Trends data has been collected or validated for this release.**
+The five case studies in `examples/case_studies` are protocol-locked and
+data-free by design; see that directory's README.

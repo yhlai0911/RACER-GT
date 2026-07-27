@@ -1,0 +1,146 @@
+% RACER-GT Python API 參考（繁體中文）。
+\documentclass[12pt,a4paper,oneside]{article}
+\input{_preamble-zh}
+\lhead{RACER-GT：API 參考}
+
+\title{\bfseries RACER-GT Python API 參考\\[0.4em]
+\large 公開工作流程與診斷進入點}
+\author{\racerauthor\\\small 大葉大學 財務金融學系}
+\date{\racerdate\ \textbullet\ 版本 \racerversion}
+
+\begin{document}
+\maketitle
+
+\begin{abstract}
+\noindent 頂層 API 是穩定的。較低階的函式仍可用於方法論診斷，但演進速度可能快於 pipeline 介面。凡是「拋錯而非回傳降級結果」之處，本文都會明確指出——那些拒絕是刻意的設計決策，不是缺少錯誤處理。
+\end{abstract}
+
+\tableofcontents
+\newpage
+
+\section{頂層 API}
+
+\begin{lstlisting}[language=Python]
+from racergt import (
+    RacerGTConfig, RacerGTPipeline, PipelineResult,
+    DesignWeightedResult, fit_design_weighted_consensus,
+    generate_collection_schedule, generate_chunk_windows,
+)
+\end{lstlisting}
+
+\subsection{\texttt{RacerGTConfig}}
+
+巢狀 pydantic 模型，承載所有鎖定設定。所有子模型均使用 \texttt{extra="forbid"}，因此 YAML 中出現無法辨識的鍵會是驗證錯誤，而不是被靜默忽略的錯字。
+
+\begin{lstlisting}[language=Python]
+cfg = RacerGTConfig.load_yaml("protocol.yaml")
+cfg.save_yaml("protocol.lock.yaml")
+digest = cfg.protocol_hash()          # canonical 序列化後的 SHA-256
+\end{lstlisting}
+
+\texttt{load\_yaml} 會重算 hash，若檔案中儲存的 \texttt{protocol\_hash} 不符即\textbf{拋錯}。手動編輯 lock 檔因此會明確失敗。要改設定，請改來源設定檔後重新產生。
+
+\subsection{\texttt{generate\_chunk\_windows(start, end, window\_days, step\_days)}}
+
+回傳固定的重疊 chunk manifest：\texttt{chunk\_id}、\texttt{window\_start}、\texttt{window\_end}、\texttt{n\_calendar\_days}。
+
+\subsection{\texttt{generate\_collection\_schedule(config, anchor\_date=None)}}
+
+回傳平衡後的 day $\times$ stream $\times$ replicate 排程，含 stream 順序、規劃時段、決定性的 chunk 順序、固定歷史端點與 protocol hash。
+
+\begin{remark}
+輸出中的 \texttt{collection\_day} 是\emph{序數設計層級}（0、1、2……），不是 day offset；\texttt{day\_offset} 與 \texttt{planned\_collection\_date} 是另外的欄位。
+\end{remark}
+
+\subsection{\texttt{RacerGTPipeline(config).fit(raw, benchmark=None)}}
+
+依序執行稽核、各 pull 的重疊校準、duplicate 診斷、設計式參考估計量、G-studies、共變異數調整 consensus、（有提供 benchmark 時的）頻率 benchmark、reliability 診斷，以及鎖定的 decision tree。回傳 \texttt{PipelineResult}。
+
+當原始批次未通過 protocol 稽核時拋出 \texttt{ValueError}，除非設定 \texttt{stop\_on\_audit\_error=False}。
+
+\subsection{\texttt{PipelineResult}}
+
+\begin{table}[H]
+\centering\small
+\begin{tabularx}{\textwidth}{lX}
+\toprule
+屬性 & 內容\\
+\midrule
+\texttt{final\_series} & 最終日頻指標、條件式標準誤、95\% 區間\\
+\texttt{calibrations} & 各 pull 的重疊圖校準結果\\
+\texttt{duplicate\_diagnostics} & exact groups 與 near-duplicate 圖\\
+\texttt{gstudies} & \texttt{level}、\texttt{detection}、\texttt{innovation}\\
+\texttt{design\_consensus} & 設計式參考估計量\\
+\texttt{consensus} & GLS／最小變異 consensus\\
+\texttt{benchmark} & 頻率 benchmark 結果，或 \texttt{None}\\
+\texttt{reliability} & pairwise、day/stream、收斂診斷\\
+\texttt{decision} & PASS／REVIEW／FAIL 與每一條規則\\
+\texttt{audit} & protocol 完整性稽核\\
+\bottomrule
+\end{tabularx}
+\end{table}
+
+\texttt{final\_series} 在有 benchmark 時回傳 benchmark 結果，否則回傳 GLS consensus。\texttt{design\_consensus} 永遠不會進入它。
+
+\section{診斷進入點}
+
+\subsection{校準}
+
+\begin{lstlisting}[language=Python]
+from racergt.overlap import OverlapGraphCalibrator, huber_location, OverlapGraphError
+\end{lstlisting}
+
+\texttt{OverlapGraphCalibrator.fit} 要求恰好一個 \texttt{series\_id} 與一個 \texttt{pull\_id}。當重疊圖不連通且 \texttt{allow\_disconnected} 為否時拋出 \texttt{OverlapGraphError}——因為圖不連通代表相對尺度只被部分識別，此時仍回傳數列等於隱瞞這件事。
+
+\subsection{Duplicates、G-study、consensus}
+
+\begin{lstlisting}[language=Python]
+from racergt.duplicates import diagnose_duplicates
+from racergt.gstudy import run_gstudy, run_all_gstudies
+from racergt.consensus import fit_design_weighted_consensus, fit_gls_consensus
+\end{lstlisting}
+
+\texttt{run\_gstudy} 在設計非完全交叉或 replicate 數不等時拋錯，而不是從不平衡設計估出變異成分。\texttt{fit\_gls\_consensus} 要求至少兩個 pull，且每個 pull 的 baseline 平均為正且有限。
+
+\begin{remark}[Duplicate 分量不是等價類]
+Near-duplicate 圖的連通分量是連通集合。屬於同一分量不代表其中每一對都超過門檻，因為連通性具遞移性、而 pairwise 規則沒有。
+\end{remark}
+
+\subsection{Benchmark 與測量誤差}
+
+\begin{lstlisting}[language=Python]
+from racergt.benchmark import temporal_benchmark
+from racergt.eiv import reliability_corrected_ols, simex_ols
+\end{lstlisting}
+
+\texttt{reliability\_corrected\_ols} 在修正後分母非正時拋錯。該情況代表估計的測量誤差已吃掉全部可觀察的解釋變數變異；此時回傳任何數值都毫無意義。
+
+\subsection{模擬與驗證}
+
+\begin{lstlisting}[language=Python]
+from racergt.simulation import SimulationSettings, simulate_racergt_data
+from racergt.validation import run_monte_carlo
+\end{lstlisting}
+
+\section{檔案 I/O}
+
+\texttt{racergt.io.read\_table} 可讀 CSV、Parquet、XLS/XLSX；\texttt{write\_table} 可寫 CSV、Parquet、XLSX 與 Stata 118 \texttt{.dta}。
+
+\section{命令列}
+
+\begin{table}[H]
+\centering\small
+\begin{tabularx}{\textwidth}{lXl}
+\toprule
+指令 & 用途 & Exit\\
+\midrule
+\texttt{racergt design} & 鎖定 protocol、排程、chunk manifest & 0\\
+\texttt{racergt audit} & 比對批次與鎖定 protocol & 失敗為 2\\
+\texttt{racergt run} & 執行完整 pipeline & FAIL 為 3\\
+\texttt{racergt simulate} & 產生受控資料，可選擇直接執行 pipeline & 0\\
+\texttt{racergt export-stata} & CSV 轉 Stata 118 & 0\\
+\bottomrule
+\end{tabularx}
+\end{table}
+
+\end{document}

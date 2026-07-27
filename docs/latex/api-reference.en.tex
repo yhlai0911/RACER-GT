@@ -1,0 +1,176 @@
+% RACER-GT Python API reference (English).
+\documentclass[12pt,a4paper,oneside]{article}
+\input{_preamble-en}
+\lhead{RACER-GT: API Reference}
+
+\title{\bfseries RACER-GT Python API Reference\\[0.4em]
+\large Public Workflow and Diagnostic Entry Points}
+\author{\racerauthor\\\small \raceraffil}
+\date{\racerdate\ \textbullet\ version \racerversion}
+
+\begin{document}
+\maketitle
+
+\begin{abstract}
+\noindent The top-level API is stable. Lower-level functions remain available
+for methodological diagnostics but may evolve faster than the pipeline
+interface. Where a routine raises rather than returning a degraded result, this
+document says so, because those refusals are deliberate design decisions rather
+than missing error handling.
+\end{abstract}
+
+\tableofcontents
+\newpage
+
+\section{Top-level API}
+
+\begin{lstlisting}[language=Python]
+from racergt import (
+    RacerGTConfig, RacerGTPipeline, PipelineResult,
+    DesignWeightedResult, fit_design_weighted_consensus,
+    generate_collection_schedule, generate_chunk_windows,
+)
+\end{lstlisting}
+
+\subsection{\texttt{RacerGTConfig}}
+
+A nested pydantic model holding every locked setting. All sub-models use
+\texttt{extra="forbid"}, so an unrecognised YAML key is a validation error
+rather than a silently ignored typo.
+
+\begin{lstlisting}[language=Python]
+cfg = RacerGTConfig.load_yaml("protocol.yaml")
+cfg.save_yaml("protocol.lock.yaml")
+digest = cfg.protocol_hash()          # SHA-256 of the canonical serialization
+\end{lstlisting}
+
+\texttt{load\_yaml} recomputes the hash and \textbf{raises} if a stored
+\texttt{protocol\_hash} disagrees. Hand-editing a lock file therefore fails
+loudly. To change a setting, edit the source configuration and regenerate.
+
+\subsection{\texttt{generate\_chunk\_windows(start, end, window\_days, step\_days)}}
+
+Returns the fixed overlapping chunk manifest: \texttt{chunk\_id},
+\texttt{window\_start}, \texttt{window\_end}, \texttt{n\_calendar\_days}.
+
+\subsection{\texttt{generate\_collection\_schedule(config, anchor\_date=None)}}
+
+Returns the balanced day $\times$ stream $\times$ replicate schedule with stream
+order, planned time slot, deterministic chunk order, fixed historical endpoints,
+and the protocol hash.
+
+\begin{remark}
+\texttt{collection\_day} in the output is the \emph{ordinal design level}
+(0, 1, 2, \dots), not the day offset; \texttt{day\_offset} and
+\texttt{planned\_collection\_date} are separate columns.
+\end{remark}
+
+\subsection{\texttt{RacerGTPipeline(config).fit(raw, benchmark=None)}}
+
+Runs audit, per-pull overlap calibration, duplicate diagnostics, the
+design-based reference estimator, G-studies, covariance-adjusted consensus,
+temporal benchmarking when a benchmark is supplied, reliability diagnostics, and
+the locked decision tree. Returns a \texttt{PipelineResult}.
+
+Raises \texttt{ValueError} when the raw batch fails the protocol audit, unless
+\texttt{stop\_on\_audit\_error=False}.
+
+\subsection{\texttt{PipelineResult}}
+
+\begin{table}[H]
+\centering\small
+\begin{tabularx}{\textwidth}{lX}
+\toprule
+Attribute & Contents\\
+\midrule
+\texttt{final\_series} & final daily index, conditional SE, 95\% interval\\
+\texttt{calibrations} & per-pull overlap-graph calibration results\\
+\texttt{duplicate\_diagnostics} & exact groups and the near-duplicate graph\\
+\texttt{gstudies} & \texttt{level}, \texttt{detection}, \texttt{innovation}\\
+\texttt{design\_consensus} & design-based reference estimator\\
+\texttt{consensus} & GLS / minimum-variance consensus\\
+\texttt{benchmark} & temporal benchmark result, or \texttt{None}\\
+\texttt{reliability} & pairwise, day/stream, convergence diagnostics\\
+\texttt{decision} & PASS / REVIEW / FAIL and every rule\\
+\texttt{audit} & protocol-integrity audit\\
+\bottomrule
+\end{tabularx}
+\end{table}
+
+\texttt{final\_series} returns the benchmark result when one exists and the GLS
+consensus otherwise. \texttt{design\_consensus} never feeds it.
+
+\section{Diagnostic entry points}
+
+\subsection{Calibration}
+
+\begin{lstlisting}[language=Python]
+from racergt.overlap import OverlapGraphCalibrator, huber_location, OverlapGraphError
+\end{lstlisting}
+
+\texttt{OverlapGraphCalibrator.fit} expects exactly one \texttt{series\_id} and
+one \texttt{pull\_id}. It raises \texttt{OverlapGraphError} when the overlap
+graph is disconnected and \texttt{allow\_disconnected} is false, because a
+disconnected graph means the relative scales are only partially identified and
+returning a series anyway would conceal that.
+
+\subsection{Duplicates, G-study, consensus}
+
+\begin{lstlisting}[language=Python]
+from racergt.duplicates import diagnose_duplicates
+from racergt.gstudy import run_gstudy, run_all_gstudies
+from racergt.consensus import fit_design_weighted_consensus, fit_gls_consensus
+\end{lstlisting}
+
+\texttt{run\_gstudy} raises if the design is not fully crossed or replicate
+counts are unequal, rather than estimating components from an unbalanced design.
+\texttt{fit\_gls\_consensus} requires at least two pulls and a positive finite
+baseline mean for each.
+
+\begin{remark}[Duplicate components are not equivalence classes]
+Connected components of the near-duplicate graph are connectivity sets.
+Membership does not imply every pair inside exceeds the threshold, because
+connectivity is transitive and the pairwise rule is not.
+\end{remark}
+
+\subsection{Benchmark and measurement error}
+
+\begin{lstlisting}[language=Python]
+from racergt.benchmark import temporal_benchmark
+from racergt.eiv import reliability_corrected_ols, simex_ols
+\end{lstlisting}
+
+\texttt{reliability\_corrected\_ols} raises when the corrected denominator is
+non-positive. That condition means the estimated measurement error accounts for
+all observed regressor variation; a number returned there would be meaningless.
+
+\subsection{Simulation and validation}
+
+\begin{lstlisting}[language=Python]
+from racergt.simulation import SimulationSettings, simulate_racergt_data
+from racergt.validation import run_monte_carlo
+\end{lstlisting}
+
+\section{File I/O}
+
+\texttt{racergt.io.read\_table} reads CSV, Parquet, XLS/XLSX;
+\texttt{write\_table} writes CSV, Parquet, XLSX, and Stata 118 \texttt{.dta}.
+
+\section{Command line}
+
+\begin{table}[H]
+\centering\small
+\begin{tabularx}{\textwidth}{lXl}
+\toprule
+Command & Purpose & Exit\\
+\midrule
+\texttt{racergt design} & lock protocol, schedule, chunk manifest & 0\\
+\texttt{racergt audit} & check a batch against the locked protocol & 2 on failure\\
+\texttt{racergt run} & run the full pipeline & 3 on FAIL\\
+\texttt{racergt simulate} & controlled dataset, optionally run pipeline & 0\\
+\texttt{racergt export-stata} & CSV to Stata 118 & 0\\
+\bottomrule
+\end{tabularx}
+\end{table}
+
+\end{document}

@@ -266,6 +266,8 @@ tests/                 單元與整合測試
 | 方法論主文 | [PDF](docs/pdf/RACER-GT-Methodology-zh-TW.pdf) | [PDF](docs/pdf/RACER-GT-Methodology-en.pdf) |
 | 數學附錄 | [PDF](docs/pdf/RACER-GT-Mathematical-Appendix-zh-TW.pdf) | [PDF](docs/pdf/RACER-GT-Mathematical-Appendix-en.pdf) |
 | 使用手冊 | [PDF](docs/pdf/RACER-GT-User-Guide-zh-TW.pdf) | [PDF](docs/pdf/RACER-GT-User-Guide-en.pdf) |
+| API 參考 | [PDF](docs/pdf/RACER-GT-API-Reference-zh-TW.pdf) | [PDF](docs/pdf/RACER-GT-API-Reference-en.pdf) |
+| Protocol 與預先註冊範本 | [PDF](docs/pdf/RACER-GT-Protocol-and-Preregistration-zh-TW.pdf) | [PDF](docs/pdf/RACER-GT-Protocol-and-Preregistration-en.pdf) |
 
 原始碼位於 `docs/latex/`，以 `python scripts/build_docs.py` 可全部重新建置。
 

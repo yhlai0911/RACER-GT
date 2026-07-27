@@ -1,0 +1,96 @@
+% RACER-GT 預先註冊 protocol 範本（繁體中文）。
+\documentclass[12pt,a4paper,oneside]{article}
+\input{_preamble-zh}
+\lhead{RACER-GT：Protocol 與預先註冊}
+
+\title{\bfseries RACER-GT Protocol 與預先註冊範本\\[0.4em]
+\large 在看到任何資料之前必須鎖定的內容}
+\author{\racerauthor\\\small 大葉大學 財務金融學系}
+\date{\racerdate\ \textbullet\ 版本 \racerversion}
+
+\begin{document}
+\maketitle
+
+\begin{abstract}
+\noindent 本範本應在蒐集開始\emph{之前}填寫、加上時戳並存放。其目的狹窄而明確：讓「取得端的研究者自由度」可被看見。一條在分析者已看過它將用來解釋的財金結果之後才建構出來的 Google Trends 數列，不是量測，而是選擇。以下所有內容，都是為了讓這個區別能被他人查核。
+\end{abstract}
+
+\tableofcontents
+\newpage
+
+\section{研究識別}
+
+\begin{itemize}
+\item 標題、作者、單位、聯絡方式。
+\item 存放位置與時戳（OSF、AEA RCT Registry、機構典藏，或簽署的 Zenodo deposit）。
+\item 使用的 RACER-GT 版本。
+\item \textbf{Protocol hash}（由 \texttt{racergt design} 產生），請記錄於此。日後任何對鎖定設定的改動都會改變此 hash——這正是讓設定漂移「可被偵測」而非「可被否認」的機制。
+\end{itemize}
+
+\section{構念與查詢設定}
+
+請先陳述經濟構念、再陳述查詢，順序不可顛倒；顛倒順序等於邀請自己挑選能得到理想結果的查詢。
+
+\begin{itemize}
+\item 本數列意圖量測的構念。
+\item 為何此關鍵字或 Topic 能量測它，以及它還可能一併捕捉到什麼。
+\item \texttt{keyword}、\texttt{topic\_or\_term}、\texttt{geo}、\texttt{category}、\texttt{search\_property}、\texttt{language}。
+\item 類別選擇的理由。限制在 Finance 會改變構念，不限制同樣會改變。請說明您選了哪一個、為什麼。
+\item 歷史起訖日期，以及正規化所用的 baseline 期間。
+\end{itemize}
+
+\section{蒐集設計}
+
+\begin{itemize}
+\item Collection-day offsets、streams、technical replicates、time slots。
+\item 每個 stream 固定了什麼：裝置、瀏覽器 profile、cookie 狀態、帳號狀態、網路路徑、IP。
+\item \textbf{聲明：}除非執行了「僅變動 IP」的 crossover factorial design，否則估出的 stream effect 不會被報告為 IP effect。
+\item Chunk 視窗長度、step、最小重疊。
+\item 蒐集途徑（官方 API、手動匯出、機構核准的 client）及其合規依據。
+\end{itemize}
+
+\section{事前鎖定的分析設定}
+
+設定檔的每一個欄位都屬於 protocol。至少須陳述：校準門檻 $c_{\min}$、Huber 常數、參考 chunk 策略、正規化模式、duplicate 門檻、共變異數估計式、權重上限、G-study 轉換、benchmark 模式與權重。
+
+\section{驗收門檻}
+
+請在蒐集\emph{之前}填妥每一個門檻，並承諾無論結果為何都據實回報。
+
+\begin{table}[H]
+\centering\small
+\begin{tabularx}{\textwidth}{lXr}
+\toprule
+規則 & 防範的問題 & 您的設定值\\
+\midrule
+\texttt{min\_unique\_pulls} & 批次大多是重複值 & \\
+\texttt{min\_spectral\_effective\_pulls} & 把相依當成重複量測 & \\
+\texttt{max\_zero\_share} & 稀有詞彙無法支撐日頻 & \\
+\texttt{min\_level\_generalizability} & 水準無法重現 & \\
+\texttt{min\_innovation\_generalizability} & 日變動無法重現 & \\
+\texttt{min\_detection\_kappa} & 零／非零型態不穩定 & \\
+\texttt{max\_component\_share} & 單一相依叢集主導全批 & \\
+\texttt{max\_convergence\_mae\_100} & consensus 尚未收斂 & \\
+\texttt{max\_benchmark\_standardized\_rmse} & 日頻與週頻數列不一致 & \\
+\bottomrule
+\end{tabularx}
+\end{table}
+
+\section{Pilot 分離}
+
+明確說明是否使用初期監控窗，並承諾以下規則：若監控導致 threshold、stitching rule、query、code 或 decision tree 發生\emph{任何}改變，被監控的資料即成為 pilot 資料，正式批次須由新的 Day 0 重新開始。缺少這項承諾，同一批資料就同時被用來設計與驗證驗收規則，產生的 acceptance bias 無法靠事後謹慎補救。
+
+\section{下游使用}
+
+\begin{itemize}
+\item 此指標將進入的財金模型，現在就要指定。
+\item 以水準或差分形式進入。若為差分，具約束力的是 innovation generalizability 門檻，而非 level 門檻。
+\item 測量誤差的處理方式：reliability-corrected OLS、SIMEX，或兩者並用。
+\item \textbf{聲明：}GT 處理規則在檢視任何報酬、波動、價差或 VaR 結果之前即已鎖定。
+\end{itemize}
+
+\section{偏離紀錄}
+
+保留一節於事後填寫，記錄對本 protocol 的每一項偏離、決定的時點與理由。一份有誠實偏離紀錄的 protocol，比一份完全沒有偏離的更可信。
+
+\end{document}

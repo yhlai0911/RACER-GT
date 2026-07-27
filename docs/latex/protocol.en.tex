@@ -1,0 +1,124 @@
+% RACER-GT preregistration protocol template (English).
+\documentclass[12pt,a4paper,oneside]{article}
+\input{_preamble-en}
+\lhead{RACER-GT: Protocol and Preregistration}
+
+\title{\bfseries RACER-GT Protocol and Preregistration Template\\[0.4em]
+\large What to Lock Before Any Data Are Seen}
+\author{\racerauthor\\\small \raceraffil}
+\date{\racerdate\ \textbullet\ version \racerversion}
+
+\begin{document}
+\maketitle
+
+\begin{abstract}
+\noindent This template is meant to be filled in, timestamped, and deposited
+\emph{before} collection begins. Its purpose is narrow and specific: to make the
+retrieval-side researcher degrees of freedom visible. A Google Trends series
+constructed after the analyst has seen the financial results it will be used to
+explain is not a measurement; it is a choice. Everything below exists to make
+that distinction checkable by someone else.
+\end{abstract}
+
+\tableofcontents
+\newpage
+
+\section{Study identification}
+
+\begin{itemize}
+\item Title, authors, affiliations, contact.
+\item Deposit location and timestamp (OSF, AEA RCT Registry, institutional
+repository, or a signed Zenodo deposit).
+\item RACER-GT version used.
+\item \textbf{Protocol hash} produced by \texttt{racergt design}. Record it here.
+Any later change to a locked setting changes this hash, which is what makes
+drift detectable rather than deniable.
+\end{itemize}
+
+\section{Construct and query specification}
+
+State the economic construct first and the query second, in that order, because
+the reverse order invites choosing whichever query gives the desired result.
+
+\begin{itemize}
+\item The construct the series is intended to measure.
+\item Why this keyword or Topic measures it, and what else it plausibly picks up.
+\item \texttt{keyword}, \texttt{topic\_or\_term}, \texttt{geo},
+\texttt{category}, \texttt{search\_property}, \texttt{language}.
+\item Justification for the category choice. Restricting to Finance changes the
+construct; so does not restricting. Say which you chose and why.
+\item Historical start and end dates, and the baseline window for normalization.
+\end{itemize}
+
+\section{Collection design}
+
+\begin{itemize}
+\item Collection-day offsets, streams, technical replicates, time slots.
+\item What each stream holds fixed: device, browser profile, cookie state,
+account state, network route, IP.
+\item \textbf{Declaration:} an estimated stream effect will not be reported as
+an IP effect unless a crossover factorial design varying IP alone was run.
+\item Chunk window length, step, and minimum overlap.
+\item The collection route (official API, manual export, institution-approved
+client) and its compliance basis.
+\end{itemize}
+
+\section{Analysis settings, locked in advance}
+
+Every field of the configuration is part of the protocol. State at minimum:
+calibration threshold $c_{\min}$, Huber constant, reference-chunk strategy,
+normalization mode, duplicate thresholds, covariance estimator, weight cap,
+G-study transformations, benchmark mode and weights.
+
+\section{Acceptance thresholds}
+
+Fill in every threshold \emph{before} collection, and commit to reporting the
+resulting status whatever it is.
+
+\begin{table}[H]
+\centering\small
+\begin{tabularx}{\textwidth}{lXr}
+\toprule
+Rule & What it protects against & Your value\\
+\midrule
+\texttt{min\_unique\_pulls} & a batch that is mostly duplicates & \\
+\texttt{min\_spectral\_effective\_pulls} & dependence counted as replication & \\
+\texttt{max\_zero\_share} & daily frequency unsupportable for a rare term & \\
+\texttt{min\_level\_generalizability} & levels that do not reproduce & \\
+\texttt{min\_innovation\_generalizability} & daily changes that do not reproduce & \\
+\texttt{min\_detection\_kappa} & unstable zero/non-zero pattern & \\
+\texttt{max\_component\_share} & one dependence cluster dominating & \\
+\texttt{max\_convergence\_mae\_100} & consensus not yet converged & \\
+\texttt{max\_benchmark\_standardized\_rmse} & daily and weekly series disagreeing & \\
+\bottomrule
+\end{tabularx}
+\end{table}
+
+\section{Pilot separation}
+
+State explicitly whether an initial monitoring window will be used, and commit
+to the following rule: if monitoring leads to \emph{any} change in thresholds,
+stitching rules, query, code, or the decision tree, the monitored data become
+pilot data and the confirmatory batch restarts from a new Day 0. Without this
+commitment the same data design and validate the acceptance rule, which produces
+acceptance bias that no amount of subsequent care removes.
+
+\section{Downstream use}
+
+\begin{itemize}
+\item The financial model the index will enter, specified now.
+\item Whether it enters in levels or differences. If in differences, the
+innovation generalizability threshold is the binding one, not the level one.
+\item How measurement error will be handled: reliability-corrected OLS, SIMEX,
+or both.
+\item \textbf{Declaration:} GT processing rules are locked before any return,
+volatility, spread, or VaR result is examined.
+\end{itemize}
+
+\section{Deviations}
+
+Reserve a section, to be completed after the fact, recording every departure
+from this protocol, when it was decided, and why. A protocol with an honest
+deviations section is more credible than one with none.
+
+\end{document}

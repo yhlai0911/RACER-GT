@@ -85,6 +85,8 @@ Every document exists in Traditional Chinese and English, built from LaTeX:
 | Methodology manuscript | [PDF](docs/pdf/RACER-GT-Methodology-en.pdf) | [PDF](docs/pdf/RACER-GT-Methodology-zh-TW.pdf) |
 | Mathematical appendix | [PDF](docs/pdf/RACER-GT-Mathematical-Appendix-en.pdf) | [PDF](docs/pdf/RACER-GT-Mathematical-Appendix-zh-TW.pdf) |
 | User guide | [PDF](docs/pdf/RACER-GT-User-Guide-en.pdf) | [PDF](docs/pdf/RACER-GT-User-Guide-zh-TW.pdf) |
+| API reference | [PDF](docs/pdf/RACER-GT-API-Reference-en.pdf) | [PDF](docs/pdf/RACER-GT-API-Reference-zh-TW.pdf) |
+| Protocol & preregistration template | [PDF](docs/pdf/RACER-GT-Protocol-and-Preregistration-en.pdf) | [PDF](docs/pdf/RACER-GT-Protocol-and-Preregistration-zh-TW.pdf) |
 
 Sources are in `docs/latex/`; rebuild everything with `python scripts/build_docs.py`.
 

@@ -8,9 +8,9 @@ RACER-GT 1.0.0 是**研究型軟體**：一個 Python 套件（`src/racergt/`）
 
 三個影響日常工作的事實：
 
-- **這個目錄不是 git repo**，是 release bundle 的解壓內容（含 `dist/` 已建好的 wheel 與 sdist）。沒有 commit 歷史可查，也沒有 CI 設定。
-- **`paper/` 的論文是方法論的權威來源**。任何估計器行為的改動（權重、變異數分解、benchmark 目標函數）都必須與論文中的命題與推導保持一致，否則會讓已發布的證明失效。改演算法前先確認論文怎麼寫。
-- **語言分工**：程式碼、docstring、CLI help 一律英文；`README.md`、`docs/`、論文為繁體中文。沿用這個分工，不要混寫。
+- **git 遠端是 `yhlai0911/RACER-GT`（public）**。本地樹是權威來源；遠端早期的 bootstrap 版本已由一個 `-s ours` merge 取代，其歷史仍保留在 DAG 中可回溯。
+- **`docs/latex/` 的方法論論文是權威來源**。任何估計器行為的改動（權重、變異數分解、benchmark 目標函數）都必須與論文中的命題與推導保持一致，否則會讓已發布的證明失效。改演算法前先確認論文怎麼寫，且**中英兩版都要更新**。
+- **語言分工**：程式碼、docstring、CLI help 一律英文。文件一律**雙語成對**——`docs/latex/<slug>.zh.tex` 與 `<slug>.en.tex`。只改一種語言就是未完成。
 
 ## 環境與常用指令
 
@@ -46,7 +46,11 @@ make build   # python -m build → dist/
 make clean
 ```
 
-**Lint 不是門檻**：`pyproject.toml` 設定了 ruff（line-length 100、py310），但現況 `ruff check src tests examples` 有 45 項既有違規（B008、RUF046、I001 等）。不要在無關的任務裡順手全域 `--fix`——那會製造大範圍 diff 並使 `SHA256SUMS_PROJECT.txt` 失效。只清理自己動過的檔案。
+**Lint 是門檻**：`pyproject.toml` 明確鎖定規則集 `E,F,W,I,UP,B,C4,RUF`（刻意不依賴 ruff 預設值，因為預設會隨版本擴張而讓 CI 無故變紅）。目前全清。兩個 ignore 是刻意的且已在 pyproject 註明理由：`B008`（typer 需要在預設值呼叫 `Argument()`/`Option()`）、`report.py` 的 `W291`（Markdown 硬換行的兩個尾隨空白）。
+
+**建置文件**：`make docs`（等同 `python scripts/build_docs.py`）。需要 latexmk + XeLaTeX 與五個 Noto 字型家族（見 `docs/latex/_common.tex` 開頭）。macOS 以 brew cask 安裝；CI 以 apt 安裝，**中文版另需 `texlive-lang-chinese` 提供 `xeCJK.sty`**。
+
+**改動檔案後**：跑 `make checksums` 重新產生 `SHA256SUMS_PROJECT.txt`，否則 `shasum -c` 會出現過期失敗。
 
 ## 架構
 
@@ -142,9 +146,10 @@ audit_raw_batch ──(可 raise)──▶ coerce_raw_chunks
 
 ## 修改後的維護動作
 
-- `SHA256SUMS_PROJECT.txt` 是 release 完整性清單，涵蓋 61 個檔案，目前全部相符（`shasum -a 256 -c SHA256SUMS_PROJECT.txt`）。**沒有腳本會自動重生**，是發布時手動產生的。任何原始檔改動都會讓它失效——修改後要嘛重新產生，要嘛在說明中明確指出它已過期。
-- 版本號 `1.0.0` 出現在 `pyproject.toml`、`src/racergt/__init__.py` 的 `__version__`、`CHANGELOG.md`、`RELEASE_NOTES.md`、`RELEASE_VALIDATION.md`。改版時要一起動。
-- `dist/` 內的 wheel 與 sdist 是舊版建置產物，改了 `src/` 之後它們就過期了；`make build` 前會先 `make clean`。
+- `SHA256SUMS_PROJECT.txt` 由 `make checksums` 從 `git ls-files` 產生，清單與 repo 不會漂移。改動任何被追蹤的檔案後都要重跑。
+- 版本號的單一來源有兩處必須同步：`pyproject.toml` 與 `src/racergt/__init__.py`；文件的版本字串來自 `docs/latex/_meta.tex`（改一行即可全體生效）。`release.yml` 會在 git tag 與 `racergt.__version__` 不一致時**拒絕發布**。
+- `dist/` 內的 wheel 與 sdist 是建置產物；`make build` 前會先 `make clean`。
+- Monte Carlo 可重現到**約 10 位有效數字**，不是位元完全相同——BLAS 加總順序在不同執行間會變。任何宣稱「bit-for-bit」的說法都是錯的。
 
 ## 已知的範圍限制（寫進論文與 README，不要無意間宣稱超出）
 
