@@ -52,6 +52,13 @@ make clean
 
 **改動檔案後**：跑 `make checksums` 重新產生 `SHA256SUMS_PROJECT.txt`，否則 `shasum -c` 會出現過期失敗。
 
+### CI 觸發條件（會影響你看到什麼）
+
+- `tests.yml`：每次 push 與 PR 都跑。
+- `docs.yml`：**只在 `docs/latex/**`、`scripts/build_docs.py` 或 `docs.yml` 本身變動時才跑**。所以改了程式碼卻沒看到 docs 執行是正常的，不是壞掉。`docs/pdf/**` 刻意不在觸發清單內——那是產物，提交產物不該再觸發一次重建。需要時可用 `gh workflow run docs.yml` 手動觸發。
+- `release.yml`：`v*` tag 觸發。PyPI 發布另外需要 repo variable `PYPI_PUBLISH=true` 才會執行（PyPI 版本號永久不可重用，不該由 tag 靜默觸發）。
+- 三個 workflow 都設 `cancel-in-progress`，連續推 commit 時舊的 run 會顯示 `cancelled`，這是預期行為。
+
 ## 架構
 
 ### 資料形狀的三段轉換
