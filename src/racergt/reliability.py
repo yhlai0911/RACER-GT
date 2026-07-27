@@ -18,6 +18,7 @@ class ReliabilityResult:
     pairwise: pd.DataFrame
     convergence: pd.DataFrame
     dependence: pd.DataFrame
+    leave_one_out: pd.DataFrame
 
     def save(self, output_dir: str | Path) -> dict[str, Path]:
         output = Path(output_dir)
@@ -26,10 +27,12 @@ class ReliabilityResult:
             "pairwise": output / "reliability_pairwise.csv",
             "convergence": output / "consensus_convergence.csv",
             "dependence": output / "day_stream_dependence.csv",
+            "leave_one_out": output / "consensus_leave_one_out.csv",
         }
         self.pairwise.to_csv(paths["pairwise"], index=False)
         self.convergence.to_csv(paths["convergence"], index=False)
         self.dependence.to_csv(paths["dependence"], index=False)
+        self.leave_one_out.to_csv(paths["leave_one_out"], index=False)
         return paths
 
 
@@ -180,6 +183,52 @@ def consensus_convergence(
     return pd.DataFrame(records)
 
 
+def consensus_leave_one_out(
+    matrix: pd.DataFrame,
+    consensus_config: ConsensusConfig,
+    baseline_start: pd.Timestamp | str | None = None,
+    baseline_end: pd.Timestamp | str | None = None,
+) -> pd.DataFrame:
+    """Order-free marginal influence of each pull on the final consensus.
+
+    The sequential path in :func:`consensus_convergence` answers "how much did the
+    consensus move when the last pull was added", but which pull is last is an
+    arbitrary consequence of the metadata sort order: one accidentally similar pull
+    can make a batch look converged, one outlier can make it look unstable, and
+    neither is evidence about the consensus. Leaving each pull out in turn asks the
+    same question without privileging an order, at m fits instead of m per ordering.
+    """
+
+    if matrix.shape[1] < 3:
+        return pd.DataFrame()
+    full = fit_gls_consensus(
+        matrix,
+        consensus_config,
+        baseline_start=baseline_start,
+        baseline_end=baseline_end,
+    ).consensus["value"].to_numpy(dtype=float)
+
+    rows = []
+    for column in matrix.columns:
+        reduced = fit_gls_consensus(
+            matrix.drop(columns=[column]),
+            consensus_config,
+            baseline_start=baseline_start,
+            baseline_end=baseline_end,
+        ).consensus["value"].to_numpy(dtype=float)
+        difference = np.abs(reduced - full)
+        mae = float(np.nanmean(difference))
+        rows.append(
+            {
+                "omitted_pull": str(column),
+                "mae_from_full": mae,
+                "mae_100_from_full": mae / 100.0,
+                "max_abs_change": float(np.nanmax(difference)),
+            }
+        )
+    return pd.DataFrame(rows)
+
+
 def assess_reliability(
     matrix: pd.DataFrame,
     metadata: pd.DataFrame | None,
@@ -196,9 +245,22 @@ def assess_reliability(
         baseline_end=baseline_end,
     )
     dependence = _dependence_table(pairwise, metadata)
-    final_convergence = (
+    leave_one_out = consensus_leave_one_out(
+        matrix,
+        consensus_config,
+        baseline_start=baseline_start,
+        baseline_end=baseline_end,
+    )
+    sequential_final = (
         convergence.iloc[-1]["mae_100_from_previous"] if not convergence.empty else np.nan
     )
+    # The acceptance rule uses the worst single-pull influence rather than the last
+    # step of one arbitrary ordering, so that the decision does not depend on which
+    # pull the metadata sort happened to place last.
+    if not leave_one_out.empty:
+        final_convergence = float(leave_one_out["mae_100_from_full"].max())
+    else:
+        final_convergence = float(sequential_final)
     summary = {
         "detection_fleiss_kappa": fleiss_kappa_binary(matrix),
         "median_level_pearson": float(pairwise["level_pearson"].median()),
@@ -206,11 +268,16 @@ def assess_reliability(
         "median_innovation_pearson": float(pairwise["innovation_pearson"].median()),
         "median_positive_jaccard": float(pairwise["positive_jaccard"].median()),
         "median_pairwise_mae_100": float(pairwise["mae_100"].median()),
-        "final_convergence_mae_100": float(final_convergence),
+        "final_convergence_mae_100": final_convergence,
+        "sequential_final_convergence_mae_100": float(sequential_final),
+        "max_leave_one_out_mae_100": (
+            float(leave_one_out["mae_100_from_full"].max()) if not leave_one_out.empty else np.nan
+        ),
     }
     return ReliabilityResult(
         summary=summary,
         pairwise=pairwise,
         convergence=convergence,
         dependence=dependence,
+        leave_one_out=leave_one_out,
     )

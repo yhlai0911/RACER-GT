@@ -16,6 +16,33 @@ from .duplicates import DuplicateDiagnostics
 from .gstudy import GStudyResult
 from .reliability import ReliabilityResult
 
+# Diagnostic keys read from upstream stages. They are named here rather than inline
+# because the lookup used to be `.get(key, nan)`: renaming a key upstream produced a
+# NaN, which `_finite` rejected, which turned the rule indeterminate, which silently
+# downgraded a batch from PASS to REVIEW. A missing key is a wiring error and must be
+# distinguishable from a genuinely indeterminate rule, so `_require` raises instead.
+KEY_ZERO_SHARE = "zero_share"
+KEY_CONNECTED = "connected"
+KEY_UNIQUE_PULLS = "n_unique_pulls"
+KEY_SPECTRAL_EFFECTIVE_PULLS = "spectral_effective_pulls"
+KEY_MAX_COMPONENT_SHARE = "max_component_share"
+KEY_GENERALIZABILITY = "generalizability_coefficient"
+KEY_DETECTION_KAPPA = "detection_fleiss_kappa"
+KEY_CONVERGENCE_MAE = "final_convergence_mae_100"
+KEY_BENCHMARK_SRMSE = "benchmark_standardized_rmse"
+
+
+def _require(mapping: dict, key: str, source: str) -> Any:
+    """Read a required upstream diagnostic, failing loudly when it is absent."""
+
+    if key not in mapping:
+        raise KeyError(
+            f"{source} does not provide the required diagnostic {key!r}. "
+            f"Available keys: {sorted(mapping)}. This is an internal wiring error "
+            "between pipeline stages, not an indeterminate acceptance rule."
+        )
+    return mapping[key]
+
 
 @dataclass
 class DecisionRule:
@@ -84,7 +111,10 @@ def evaluate_batch(
         )
     )
 
-    all_connected = all(bool(d.get("connected", False)) for d in calibration_diagnostics)
+    all_connected = all(
+        bool(_require(d, KEY_CONNECTED, "CalibrationResult.diagnostics"))
+        for d in calibration_diagnostics
+    )
     rules.append(
         DecisionRule(
             "overlap_graph_connectivity",
@@ -96,7 +126,7 @@ def evaluate_batch(
         )
     )
 
-    n_unique = consensus.diagnostics["n_unique_pulls"]
+    n_unique = _require(consensus.diagnostics, KEY_UNIQUE_PULLS, "ConsensusResult.diagnostics")
     rules.append(
         DecisionRule(
             "minimum_unique_pulls",
@@ -107,7 +137,9 @@ def evaluate_batch(
         )
     )
 
-    spectral = consensus.diagnostics["spectral_effective_pulls"]
+    spectral = _require(
+        consensus.diagnostics, KEY_SPECTRAL_EFFECTIVE_PULLS, "ConsensusResult.diagnostics"
+    )
     rules.append(
         DecisionRule(
             "effective_pull_information",
@@ -118,7 +150,7 @@ def evaluate_batch(
         )
     )
 
-    zero_share = audit.summary.get("zero_share", np.nan)
+    zero_share = _require(audit.summary, KEY_ZERO_SHARE, "AuditResult.summary")
     rules.append(
         DecisionRule(
             "zero_share",
@@ -129,8 +161,10 @@ def evaluate_batch(
         )
     )
 
+    # A transformation that was never requested is a legitimate not-applicable;
+    # a requested transformation missing its coefficient is a wiring error.
     level_g = (
-        gstudies.get("level").coefficients.get("generalizability_coefficient")
+        _require(gstudies["level"].coefficients, KEY_GENERALIZABILITY, "level GStudyResult")
         if "level" in gstudies
         else np.nan
     )
@@ -145,7 +179,9 @@ def evaluate_batch(
     )
 
     innovation_g = (
-        gstudies.get("innovation").coefficients.get("generalizability_coefficient")
+        _require(
+            gstudies["innovation"].coefficients, KEY_GENERALIZABILITY, "innovation GStudyResult"
+        )
         if "innovation" in gstudies
         else np.nan
     )
@@ -161,7 +197,7 @@ def evaluate_batch(
         )
     )
 
-    kappa = reliability.summary.get("detection_fleiss_kappa", np.nan)
+    kappa = _require(reliability.summary, KEY_DETECTION_KAPPA, "ReliabilityResult.summary")
     detection_applicable = _finite(zero_share) and 0.0 < float(zero_share) < 1.0
     rules.append(
         DecisionRule(
@@ -180,7 +216,9 @@ def evaluate_batch(
         )
     )
 
-    component_share = duplicates.summary.get("max_component_share", 0.0)
+    component_share = _require(
+        duplicates.summary, KEY_MAX_COMPONENT_SHARE, "DuplicateDiagnostics.summary"
+    )
     rules.append(
         DecisionRule(
             "near_duplicate_concentration",
@@ -191,7 +229,9 @@ def evaluate_batch(
         )
     )
 
-    convergence = reliability.summary.get("final_convergence_mae_100", np.nan)
+    convergence = _require(
+        reliability.summary, KEY_CONVERGENCE_MAE, "ReliabilityResult.summary"
+    )
     rules.append(
         DecisionRule(
             "consensus_convergence",
@@ -203,7 +243,9 @@ def evaluate_batch(
     )
 
     if benchmark is not None:
-        srmse = benchmark.diagnostics.get("benchmark_standardized_rmse", np.nan)
+        srmse = _require(
+            benchmark.diagnostics, KEY_BENCHMARK_SRMSE, "BenchmarkResult.diagnostics"
+        )
         rules.append(
             DecisionRule(
                 "frequency_consistency",
