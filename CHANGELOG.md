@@ -2,8 +2,12 @@
 
 ## 1.0.0 - 2026-07-27
 
-First stable release. The statistical pipeline is unchanged from 0.1.0 and
-remains bit-for-bit reproducible; this release makes the project usable and
+First stable release. The statistical pipeline is unchanged from 0.1.0: a
+re-run of the twenty-replication Monte Carlo reproduces every published
+figure to ten significant digits. It is not bit-for-bit identical, because
+floating-point summation order in the linear-algebra backend varies between
+runs; the residual disagreement appears at the eleventh significant digit and
+is far below any reported precision. This release makes the project usable and
 citable as an open academic platform.
 
 ### Fixed

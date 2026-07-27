@@ -1,0 +1,71 @@
+name: release
+
+on:
+  push:
+    tags: ["v*"]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  verify:
+    name: verify before publishing
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v5
+      - run: uv venv --python 3.12
+      - run: uv pip install -r requirements-dev.txt && uv pip install -e .
+      - run: uv run ruff check src tests examples scripts
+      - run: uv run pytest -q
+
+      - name: Tag must match the packaged version
+        # A tag that disagrees with pyproject.toml would publish a wheel whose
+        # version nobody can trace back to a commit. Refuse rather than guess.
+        if: startsWith(github.ref, 'refs/tags/v')
+        run: |
+          tag_version="${GITHUB_REF_NAME#v}"
+          pkg_version=$(uv run python -c "import racergt; print(racergt.__version__)")
+          echo "tag=$tag_version package=$pkg_version"
+          if [ "$tag_version" != "$pkg_version" ]; then
+            echo "::error::tag $tag_version does not match package $pkg_version"
+            exit 1
+          fi
+
+  build:
+    name: build distributions
+    needs: verify
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v5
+      - run: uv venv --python 3.12
+      - run: uv pip install build twine
+      - run: uv run python -m build
+      - run: uv run twine check dist/*
+      - uses: actions/upload-artifact@v4
+        with:
+          name: distributions
+          path: dist/
+
+  publish:
+    name: publish to PyPI
+    needs: build
+    runs-on: ubuntu-latest
+    if: startsWith(github.ref, 'refs/tags/v')
+    environment:
+      name: pypi
+      url: https://pypi.org/p/racergt
+    permissions:
+      # Trusted publishing: PyPI verifies this workflow's OIDC identity, so no
+      # long-lived API token is stored in the repository. Configure the
+      # publisher once at https://pypi.org/manage/account/publishing/ with
+      # owner yhlai0911, repo RACER-GT, workflow release.yml, environment pypi.
+      id-token: write
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          name: distributions
+          path: dist/
+      - uses: pypa/gh-action-pypi-publish@release/v1

@@ -1,11 +1,43 @@
 cff-version: 1.2.0
-message: "If you use RACER-GT, cite the accompanying methodology manuscript and software release."
+message: "If you use RACER-GT, please cite both the software release and the accompanying methodology manuscript."
 title: "RACER-GT: Randomized Acquisition, Calibration, Error Decomposition, and Reliability for Google Trends"
+abstract: >-
+  A design-based statistical framework and Python package for constructing
+  long-horizon daily Google Trends relative-search-interest indices from
+  repeated, separately normalized retrievals. It treats data acquisition as a
+  preregistered repeated-measurement experiment: global overlap-graph
+  calibration replaces sequential stitching, generalizability theory decomposes
+  variation across collection days and streams, a covariance-adjusted consensus
+  refuses to count dependent retrievals as independent evidence, and the
+  resulting measurement uncertainty is propagated into downstream regressions.
 type: software
 authors:
   - family-names: "Lai"
     given-names: "Yi-Hao"
+    email: "yhlai@mail.dyu.edu.tw"
+    affiliation: "Department of Finance, Da-Yeh University"
   - name: "RACER-GT contributors"
 version: 1.0.0
 date-released: 2026-07-27
 license: MIT
+repository-code: "https://github.com/yhlai0911/RACER-GT"
+url: "https://github.com/yhlai0911/RACER-GT"
+keywords:
+  - Google Trends
+  - investor attention
+  - measurement error
+  - experimental design
+  - generalizability theory
+  - graph calibration
+  - generalized least squares
+  - temporal benchmarking
+  - SIMEX
+  - econometrics
+references:
+  - type: article
+    title: "RACER-GT: A Design-Based Statistical Framework for the Reliable Construction of Long-Horizon Google Trends Time Series"
+    authors:
+      - family-names: "Lai"
+        given-names: "Yi-Hao"
+    year: 2026
+    notes: "Methodology manuscript distributed with the software release."

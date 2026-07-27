@@ -1,0 +1,36 @@
+{
+  "title": "RACER-GT: Randomized Acquisition, Calibration, Error Decomposition, and Reliability for Google Trends",
+  "description": "<p>A design-based statistical framework and Python package for constructing long-horizon daily Google Trends relative-search-interest indices from repeated, separately normalized retrievals.</p><p>RACER-GT treats data acquisition as a preregistered repeated-measurement experiment rather than a preliminary inconvenience. Global overlap-graph weighted least squares replaces sequential stitching and removes error accumulation; exact and near-duplicate diagnostics prevent dependent retrievals from being counted as independent evidence; a three-facet generalizability decomposition separates historical date, collection day and collection stream; a covariance-adjusted consensus reports an honest effective sample size; and the resulting measurement uncertainty is propagated into reliability-corrected OLS and SIMEX.</p><p>The package does not estimate absolute Google search counts. All unbiasedness, consistency and minimum-variance results are conditional on assumptions stated explicitly in the accompanying methodology manuscript, which is distributed in Traditional Chinese and English.</p>",
+  "upload_type": "software",
+  "license": "MIT",
+  "access_right": "open",
+  "version": "1.0.0",
+  "language": "eng",
+  "creators": [
+    {
+      "name": "Lai, Yi-Hao",
+      "affiliation": "Department of Finance, Da-Yeh University"
+    }
+  ],
+  "keywords": [
+    "Google Trends",
+    "investor attention",
+    "measurement error",
+    "experimental design",
+    "generalizability theory",
+    "graph calibration",
+    "generalized least squares",
+    "temporal benchmarking",
+    "SIMEX",
+    "econometrics",
+    "reproducible research"
+  ],
+  "related_identifiers": [
+    {
+      "identifier": "https://github.com/yhlai0911/RACER-GT",
+      "relation": "isSupplementTo",
+      "resource_type": "software",
+      "scheme": "url"
+    }
+  ]
+}

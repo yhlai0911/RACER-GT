@@ -1,0 +1,77 @@
+name: docs
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: docs-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  pdf:
+    name: build PDFs
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install TeX Live and the five Noto families
+        # The document set depends only on these fonts by design; see the
+        # comment at the top of docs/latex/_common.tex. Adding a font here
+        # without adding it there (or vice versa) breaks reproducibility.
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends \
+            texlive-xetex texlive-latex-extra texlive-science \
+            texlive-fonts-recommended latexmk poppler-utils \
+            fonts-noto-core fonts-noto-cjk fonts-noto-cjk-extra
+          fc-cache -f
+
+      - name: Verify the required fonts resolve
+        # Fail early with a readable message rather than deep inside a
+        # fontspec error 300 lines into a latexmk log.
+        run: |
+          for f in "Noto Serif" "Noto Sans" "Noto Sans Mono" \
+                   "Noto Serif CJK TC" "Noto Sans CJK TC"; do
+            if ! fc-list : family | grep -qF "$f"; then
+              echo "::error::required font not found: $f"
+              exit 1
+            fi
+            echo "found: $f"
+          done
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Build every document
+        run: python scripts/build_docs.py
+
+      - name: Confirm no document silently produced an empty PDF
+        run: |
+          shopt -s nullglob
+          count=0
+          for pdf in docs/pdf/*.pdf; do
+            pages=$(pdfinfo "$pdf" | awk '/^Pages:/ {print $2}')
+            echo "$pdf: $pages pages"
+            if [ "${pages:-0}" -lt 2 ]; then
+              echo "::error::$pdf has $pages page(s); expected at least 2"
+              exit 1
+            fi
+            count=$((count + 1))
+          done
+          if [ "$count" -eq 0 ]; then
+            echo "::error::no PDFs were produced"
+            exit 1
+          fi
+          echo "built $count documents"
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: racergt-pdfs
+          path: docs/pdf/*.pdf

@@ -1,0 +1,84 @@
+name: tests
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: tests-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  test:
+    name: py${{ matrix.python-version }} on ${{ matrix.os }}
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        python-version: ["3.10", "3.11", "3.12", "3.13"]
+        os: [ubuntu-latest]
+        # The estimators are numerical; verify one non-Linux platform rather
+        # than assuming BLAS differences are immaterial.
+        include:
+          - python-version: "3.12"
+            os: macos-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v5
+        with:
+          enable-cache: true
+
+      - name: Set up Python ${{ matrix.python-version }}
+        run: uv python install ${{ matrix.python-version }}
+
+      - name: Install the package and dev dependencies
+        run: |
+          uv venv --python ${{ matrix.python-version }}
+          uv pip install -r requirements-dev.txt
+          uv pip install -e .
+
+      - name: Run tests
+        run: uv run pytest -q --cov=racergt --cov-report=term-missing
+
+      - name: End-to-end pipeline smoke test
+        # A green unit-test suite does not prove the CLI still produces an
+        # accepted batch, which is the thing users actually run.
+        run: |
+          uv run racergt simulate examples/config_example.yaml \
+            --out "${RUNNER_TEMP}/sim" --seed 42
+          test -f "${RUNNER_TEMP}/sim/results/RACER_GT_final_series.csv"
+          test -f "${RUNNER_TEMP}/sim/results/consensus/design_weighted_consensus.csv"
+
+  lint:
+    name: ruff
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v5
+      - run: uv venv --python 3.12
+      - run: uv pip install -r requirements-dev.txt
+      - run: uv run ruff check src tests examples scripts
+
+  build:
+    name: build distributions
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v5
+      - run: uv venv --python 3.12
+      - run: uv pip install build twine
+      - run: uv run python -m build
+      - name: Check metadata
+        run: uv run twine check dist/*
+      - uses: actions/upload-artifact@v4
+        with:
+          name: distributions
+          path: dist/
