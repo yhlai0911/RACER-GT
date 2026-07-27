@@ -1,0 +1,170 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>RACER-GT — Reliable Long-Horizon Google Trends Time Series</title>
+<meta name="description" content="A design-based statistical framework for constructing long-horizon daily Google Trends indices from repeated, separately normalized retrievals.">
+<style>
+:root{
+  --bg:#fbfbf9; --fg:#1a1a1a; --muted:#5d5d58; --rule:#e0e0da;
+  --accent:#7a2e2e; --code-bg:#f2f2ee; --card:#ffffff;
+}
+@media (prefers-color-scheme: dark){
+  :root{ --bg:#141416; --fg:#e9e9e4; --muted:#a0a09a; --rule:#2c2c30;
+         --accent:#d98a8a; --code-bg:#1e1e22; --card:#1a1a1e; }
+}
+*{box-sizing:border-box}
+body{
+  margin:0; background:var(--bg); color:var(--fg);
+  font-family:"Iowan Old Style","Palatino Linotype",Palatino,Georgia,"Noto Serif CJK TC","PingFang TC",serif;
+  line-height:1.65; -webkit-font-smoothing:antialiased;
+}
+.wrap{max-width:52rem;margin:0 auto;padding:0 1.5rem}
+header{border-bottom:1px solid var(--rule);padding:3.5rem 0 2.25rem;margin-bottom:2.5rem}
+h1{font-size:clamp(2rem,5vw,2.9rem);margin:0 0 .3rem;letter-spacing:-.02em;line-height:1.1}
+.sub{color:var(--muted);font-size:1.02rem;margin:0 0 1.4rem}
+.lede{font-size:1.1rem;margin:0 0 1.5rem}
+h2{font-size:1.35rem;margin:2.75rem 0 .85rem;letter-spacing:-.01em}
+h2:first-of-type{margin-top:0}
+a{color:var(--accent);text-decoration-thickness:.06em;text-underline-offset:.18em}
+.badges{display:flex;gap:.5rem;flex-wrap:wrap;margin-bottom:1.5rem}
+.badges img{height:20px}
+.lang{display:inline-flex;gap:.6rem;align-items:center;font-size:.9rem;color:var(--muted);margin-bottom:1rem}
+table{width:100%;border-collapse:collapse;margin:1rem 0;font-size:.95rem;display:block;overflow-x:auto}
+th,td{text-align:left;padding:.55rem .7rem;border-bottom:1px solid var(--rule);vertical-align:top}
+th{font-weight:600;font-size:.82rem;text-transform:uppercase;letter-spacing:.05em;color:var(--muted)}
+td.num{text-align:right;font-variant-numeric:tabular-nums}
+pre{background:var(--code-bg);padding:1rem 1.1rem;border-radius:6px;overflow-x:auto;font-size:.88rem;line-height:1.5}
+code{font-family:ui-monospace,"SF Mono",Menlo,"Noto Sans Mono",monospace;font-size:.9em}
+pre code{font-size:1em}
+:not(pre)>code{background:var(--code-bg);padding:.12em .38em;border-radius:3px}
+.cards{display:grid;grid-template-columns:repeat(auto-fit,minmax(15rem,1fr));gap:.85rem;margin:1.25rem 0}
+.card{background:var(--card);border:1px solid var(--rule);border-radius:8px;padding:1rem 1.1rem}
+.card h3{margin:0 0 .35rem;font-size:1rem}
+.card p{margin:0 0 .6rem;font-size:.9rem;color:var(--muted)}
+.card a{font-size:.88rem;margin-right:.75rem;white-space:nowrap}
+.note{border-left:3px solid var(--accent);padding:.7rem 0 .7rem 1rem;margin:1.5rem 0;color:var(--muted);font-size:.95rem}
+.note strong{color:var(--fg)}
+ul{padding-left:1.2rem}
+li{margin:.35rem 0}
+footer{border-top:1px solid var(--rule);margin-top:3.5rem;padding:1.75rem 0 3rem;color:var(--muted);font-size:.88rem}
+:lang(zh-Hant){font-family:"Noto Serif CJK TC","PingFang TC","Songti TC",serif}
+</style>
+</head>
+<body>
+<div class="wrap">
+
+<header>
+  <h1>RACER-GT</h1>
+  <p class="sub">Randomized Acquisition, Calibration, Error Decomposition, and Reliability for Google Trends</p>
+  <div class="badges">
+    <a href="https://github.com/yhlai0911/RACER-GT/actions/workflows/tests.yml"><img src="https://github.com/yhlai0911/RACER-GT/actions/workflows/tests.yml/badge.svg" alt="tests"></a>
+    <a href="https://github.com/yhlai0911/RACER-GT/actions/workflows/docs.yml"><img src="https://github.com/yhlai0911/RACER-GT/actions/workflows/docs.yml/badge.svg" alt="docs"></a>
+    <img src="https://img.shields.io/badge/License-MIT-yellow.svg" alt="MIT">
+    <img src="https://img.shields.io/badge/python-3.10--3.13-blue.svg" alt="Python 3.10-3.13">
+  </div>
+  <p class="lede">
+    Google Trends rescales every request to 0–100, returns daily granularity only for
+    short windows, and can return different numbers for an identical query repeated on a
+    different day. RACER-GT treats acquisition as a <strong>preregistered repeated-measurement
+    experiment</strong> instead of a preliminary inconvenience.
+  </p>
+  <p><a href="https://github.com/yhlai0911/RACER-GT">GitHub repository</a> · <a href="https://github.com/yhlai0911/RACER-GT/releases/tag/v1.0.0">v1.0.0 release</a></p>
+</header>
+
+<h2>What it does differently</h2>
+<table>
+<thead><tr><th>Common practice</th><th>RACER-GT</th></tr></thead>
+<tbody>
+<tr><td>Stitch chunks sequentially, chaining each onto the last</td><td>Solve <strong>all</strong> chunk scales at once by weighted least squares on the overlap graph — no error accumulation, plus connectivity and cycle-consistency diagnostics</td></tr>
+<tr><td>Download once</td><td>Balanced, protocol-locked repeated retrieval across collection days, streams, and replicates</td></tr>
+<tr><td>Treat N retrievals as N samples</td><td>Estimate residual dependence and report <strong>effective</strong> pull counts, which fall below N when retrievals are dependent</td></tr>
+<tr><td>Delete duplicates</td><td>Retain them in the audit archive, collapse exact ones analytically, expose near-duplicate clusters</td></tr>
+<tr><td>One reliability number</td><td>Separate <strong>detection</strong>, <strong>level</strong>, and <strong>daily-innovation</strong> reliability, because they routinely disagree</td></tr>
+<tr><td>Stop at construction</td><td>Propagate measurement uncertainty into reliability-corrected OLS and SIMEX</td></tr>
+</tbody>
+</table>
+
+<h2>Install</h2>
+<pre><code>pip install racergt   # requires Python 3.10+</code></pre>
+<p style="font-size:.9rem;color:var(--muted)">Not yet published to PyPI — install from the
+<a href="https://github.com/yhlai0911/RACER-GT/releases/tag/v1.0.0">v1.0.0 release wheel</a> for now.</p>
+
+<h2>Documentation · 文件</h2>
+<p class="lang">Every document exists in both languages · <span lang="zh-Hant">每份文件皆有中英文版本</span></p>
+
+<div class="cards">
+  <div class="card">
+    <h3>Methodology manuscript</h3>
+    <p>Estimands, assumptions, proofs, Monte Carlo evidence.</p>
+    <a href="pdf/RACER-GT-Methodology-en.pdf">English</a><a href="pdf/RACER-GT-Methodology-zh-TW.pdf" lang="zh-Hant">繁體中文</a>
+  </div>
+  <div class="card">
+    <h3>Mathematical appendix</h3>
+    <p>Derivations, and the three places the code departs from the textbook estimator.</p>
+    <a href="pdf/RACER-GT-Mathematical-Appendix-en.pdf">English</a><a href="pdf/RACER-GT-Mathematical-Appendix-zh-TW.pdf" lang="zh-Hant">繁體中文</a>
+  </div>
+  <div class="card">
+    <h3>User guide</h3>
+    <p>Installation, workflow, data contract, outputs, symptom-to-remedy table.</p>
+    <a href="pdf/RACER-GT-User-Guide-en.pdf">English</a><a href="pdf/RACER-GT-User-Guide-zh-TW.pdf" lang="zh-Hant">繁體中文</a>
+  </div>
+  <div class="card">
+    <h3>API reference</h3>
+    <p>Public workflow, diagnostic entry points, and where routines deliberately raise.</p>
+    <a href="pdf/RACER-GT-API-Reference-en.pdf">English</a><a href="pdf/RACER-GT-API-Reference-zh-TW.pdf" lang="zh-Hant">繁體中文</a>
+  </div>
+  <div class="card">
+    <h3>Protocol &amp; preregistration</h3>
+    <p>A template to fill in and deposit before collection begins.</p>
+    <a href="pdf/RACER-GT-Protocol-and-Preregistration-en.pdf">English</a><a href="pdf/RACER-GT-Protocol-and-Preregistration-zh-TW.pdf" lang="zh-Hant">繁體中文</a>
+  </div>
+</div>
+
+<h2>Controlled Monte Carlo</h2>
+<p>Twenty replications against a known latent truth:</p>
+<table>
+<thead><tr><th>Estimator</th><th>Mean RMSE</th><th>Mean corr.</th><th>Mean innov. corr.</th><th>Mean peak recall</th></tr></thead>
+<tbody>
+<tr><td>Single pull</td><td class="num">7.2305</td><td class="num">0.9695</td><td class="num">0.8869</td><td class="num">0.8868</td></tr>
+<tr><td>Cross-pull median</td><td class="num">4.1710</td><td class="num">0.9898</td><td class="num">0.9556</td><td class="num">0.9447</td></tr>
+<tr><td>Simple mean</td><td class="num">3.7253</td><td class="num">0.9919</td><td class="num"><strong>0.9747</strong></td><td class="num">0.9526</td></tr>
+<tr><td><strong>RACER-GT</strong></td><td class="num"><strong>3.5265</strong></td><td class="num"><strong>0.9927</strong></td><td class="num">0.9745</td><td class="num">0.9526</td></tr>
+</tbody>
+</table>
+<div class="note">
+RACER-GT does <strong>not</strong> dominate on every metric. Innovation correlation is marginally
+lower than the simple mean and peak recall is identical; the gain concentrates in level
+accuracy. This is one data-generating process, not a universal guarantee.
+</div>
+
+<h2>What this does not claim</h2>
+<ul>
+<li>It does not identify absolute Google search counts.</li>
+<li>Every unbiasedness, consistency, and minimum-variance result is conditional on assumptions stated explicitly in the methodology manuscript.</li>
+<li>PASS means the batch satisfies the locked measurement rules — not construct validity for the keyword, and not any causal interpretation.</li>
+<li>A static IP address is not evidence of an independent sample. <code>stream_id</code> denotes a composite environment; a stream effect is not an IP effect without a crossover factorial design.</li>
+<li>The package embeds no Google Trends scraper, by design.</li>
+</ul>
+
+<div class="note">
+<strong>No real Google Trends data ships with this release.</strong> The five case studies
+(Bitcoin, Gold, Inflation, S&amp;P 500, Vietnam Gold) lock a protocol and contain no
+observations, and none are simulated and presented as real. Collection is the
+researcher's responsibility, through a route that is lawful and auditable in their own
+institutional context.
+</div>
+
+<h2>Citation</h2>
+<p>See <a href="https://github.com/yhlai0911/RACER-GT/blob/main/CITATION.cff">CITATION.cff</a>.
+Cite both the software release and the accompanying methodology manuscript.</p>
+
+<footer>
+  <p>Yi-Hao Lai · Department of Finance, Da-Yeh University · MIT License</p>
+  <p><span lang="zh-Hant">賴奕豪　大葉大學財務金融學系</span></p>
+</footer>
+
+</div>
+</body>
+</html>
