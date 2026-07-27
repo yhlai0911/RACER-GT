@@ -47,3 +47,8 @@ docs/latex/*.pdf
 # 真實 GT 資料與其衍生結果。手動下載自 trends.google.com，非本專案發布內容；
 # 保留在工作樹中供驗證使用，但不進版控（授權狀態與再散布權利未確認）。
 /real_data/
+
+# 真實資料的衍生輸出：診斷表是摘要統計量，可進版控供審查者核對論文表格；
+# 逐日重建數列實質上是 GT 數值的轉換，與 /real_data/ 適用同一個再散布考量。
+/real_data_validation/graph_series.csv
+/real_data_validation/sequential_series.csv
