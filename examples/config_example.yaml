@@ -1,0 +1,84 @@
+query:
+  series_id: gold_attention
+  keyword: gold price
+  geo: US
+  category: 7
+  search_property: web
+  language: en-US
+  historical_start: 2024-01-01
+  historical_end: 2025-12-31
+  topic_or_term: term
+  baseline_start: 2024-01-01
+  baseline_end: 2025-12-31
+
+design:
+  day_offsets: [0, 1, 2, 7, 14, 21, 30]
+  streams: [A, B, C]
+  technical_replicates: 1
+  time_slots: ["09:00", "13:00", "17:00"]
+  random_seed: 20260727
+  balance_stream_order: true
+  balance_chunk_order: true
+  require_fixed_environment_within_stream: true
+chunking:
+  window_days: 180
+  step_days: 30
+  min_overlap_days: 14
+  inclusive_end: true
+calibration:
+  min_value: 2.0
+  huber_c: 1.345
+  max_huber_iter: 100
+  huber_tol: 1.0e-8
+  edge_variance_floor: 1.0e-6
+  max_edge_weight: 1000000.0
+  reference_strategy: highest_degree
+  explicit_reference_chunk: null
+  lognormal_bias_correction: true
+  aggregation: inverse_variance
+  normalization: baseline_mean_100
+  allow_disconnected: false
+duplicates:
+  hash_decimals: 10
+  exact_tolerance: 1.0e-10
+  min_pair_observations: 30
+  raw_correlation_threshold: 0.995
+  residual_correlation_threshold: 0.95
+  exact_cell_agreement_threshold: 0.90
+  mae_100_threshold: 0.02
+  positive_jaccard_threshold: 0.90
+  use_residual_rule: true
+consensus:
+  collapse_exact_duplicates: true
+  center_pull_bias: true
+  covariance: ledoit_wolf
+  nonnegative_weights: true
+  weight_cap: 0.50
+  local_uncertainty: true
+  baseline_rescale: true
+gstudy:
+  clip_negative_components: true
+  bootstrap_replications: 0
+  block_length: 28
+  random_seed: 20260727
+  transformations: [level, detection, innovation]
+benchmark:
+  enabled: true
+  mode: soft
+  fidelity_weight: 1.0
+  smoothness_weight: 10.0
+  ridge: 1.0e-8
+  default_benchmark_se: 2.0
+  preserve_nonnegative: true
+decision:
+  min_unique_pulls: 12
+  min_spectral_effective_pulls: 4.0
+  max_zero_share: 0.80
+  min_level_generalizability: 0.80
+  min_innovation_generalizability: 0.70
+  min_detection_kappa: 0.60
+  max_component_share: 0.50
+  max_convergence_mae_100: 0.02
+  max_benchmark_standardized_rmse: 2.50
+  require_connected_overlap_graphs: true
+  require_protocol_integrity: true

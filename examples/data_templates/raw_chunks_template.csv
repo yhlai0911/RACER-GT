@@ -1,0 +1,1 @@
+series_id,pull_id,chunk_id,historical_date,value,collection_day,stream_id,replicate_id,window_start,window_end,retrieved_at,keyword,geo,category,search_property,language,is_partial,protocol_hash,raw_response_hash,network_event
