@@ -81,6 +81,19 @@ The asymptotic variance of an M-estimator of location is
 \frac{\E[\psi_c(u)^2]}{\big(\E[\psi_c'(u)]\big)^2}.
 \label{eq:m-var}
 \end{equation}
+The implementation uses the finite-sample weighted counterpart: with the final
+Huber weights $w_i=\psi_c(u_i)/u_i$ it forms an effective sample size and divides
+the robust scale by it,
+\begin{equation}
+n_{\text{eff}}=\frac{\left(\sum_i w_i\right)^2}{\sum_i w_i^2},
+\qquad
+\hat{v}_{jk}=\frac{\hat{\sigma}^2_{\text{robust}}}{\max(n_{\text{eff}},1)}.
+\end{equation}
+The two agree closely under normality at $c=1.345$, where the efficiency factor
+is about 1.04, but they are not the same estimator: \eqref{eq:m-var} is
+asymptotic, whereas the weighted form responds directly to a handful of
+observations dominating a single edge. \texttt{huber\_location} in
+\texttt{overlap.py} computes the latter.
 This variance becomes the edge precision $1/\hat{v}_{jk}$ in the graph problem.
 Two implementation details matter:
 \begin{enumerate}
@@ -144,17 +157,31 @@ about.
 
 \subsection{Lognormal bias correction}
 
-If $\epsilon_{jt}\sim\mathcal{N}(0,\sigma_j^2)$ in
-$Y_{jt}=a_jX_t\exp(\epsilon_{jt})$, then
-$\E[Y_{jt}]=a_jX_t\exp(\sigma_j^2/2)$. Back-transforming with
-$\exp(-\hat{\ell}_j)$ alone therefore targets the median rather than the mean.
-The optional correction multiplies by $\exp(-\hat{\sigma}_j^2/2)$.
+What is corrected is the Jensen bias \emph{of the estimator}, not the
+median-versus-mean gap of the multiplicative error in the data-generating
+process. With $\hat{\ell}_j$ approximately normal and
+$s_j^2=\Var(\hat{\ell}_j)$,
+\begin{equation}
+\E\!\left[\exp(-\hat{\ell}_j)\right]
+=\exp(-\ell_j)\exp\!\left(\tfrac{1}{2}s_j^2\right),
+\end{equation}
+so back-transforming with $\exp(-\hat{\ell}_j)$ alone systematically overstates
+$a_j^{-1}$. The first-order correction is
+\begin{equation}
+\widehat{a_j^{-1}}_{\,bc}=\exp\!\left(-\hat{\ell}_j-\tfrac{1}{2}s_j^2\right),
+\end{equation}
+as in the manuscript. The implementation takes $s_j^2$ from the diagonal of
+$L^{-1}$ in the graph WLS solution, which is \texttt{log\_scale\_variance} in
+\texttt{overlap.py}.
 
 \begin{remark}[Departure 2]
-This correction is exact only under lognormality. It is enabled by default
-because the multiplicative model motivates it, but it is a configuration flag
-precisely because the normality assumption is not testable at the sample sizes
-involved.
+This correction is exact only when $\hat{\ell}_j$ is approximately normal, and
+its magnitude shrinks toward zero as the number of usable overlap days grows.
+That distinguishes it from the variance of the observation error
+$\epsilon_{jt}$ itself, which does not shrink with sample size; the two are easy
+to conflate, so the quantity actually used is named explicitly here. It is
+enabled by default because the multiplicative model motivates it, and it remains
+a configuration flag because normality is not testable at these sample sizes.
 \end{remark}
 
 % =============================================================================
@@ -191,7 +218,8 @@ For relative decisions (rank ordering across dates),
 \begin{equation}
 E\rho^2=\frac{\sigma^2_T}
 {\sigma^2_T+\dfrac{\sigma^2_{TD}}{n_d}+\dfrac{\sigma^2_{TS}}{n_s}
-+\dfrac{\sigma^2_{TDS}+\sigma^2_E}{n_dn_s n_r}} .
++\dfrac{\sigma^2_{TDS}}{n_dn_s}+\dfrac{\sigma^2_E}{n_dn_s n_r}} .
+\label{eq:erho-en}
 \end{equation}
 For absolute decisions the dependability coefficient $\Phi$ additionally charges
 the main effects of $D$ and $S$, because a uniform shift matters when the score
@@ -201,8 +229,22 @@ is interpreted on its own rather than relative to other dates:
 {\sigma^2_T+\dfrac{\sigma^2_D}{n_d}+\dfrac{\sigma^2_S}{n_s}
 +\dfrac{\sigma^2_{TD}}{n_d}+\dfrac{\sigma^2_{TS}}{n_s}
 +\dfrac{\sigma^2_{DS}}{n_dn_s}
-+\dfrac{\sigma^2_{TDS}+\sigma^2_E}{n_dn_sn_r}} .
++\dfrac{\sigma^2_{TDS}}{n_dn_s}+\dfrac{\sigma^2_E}{n_dn_sn_r}} .
+\label{eq:phi-en}
 \end{equation}
+
+\begin{remark}[Why $\sigma^2_{TDS}$ and $\sigma^2_E$ carry different divisors]
+The $TDS$ interaction is averaged only over day $\times$ stream cells, so it is
+divided by $n_dn_s$; pure replication error is averaged $n_r$ further times
+within each cell, so it is divided by $n_dn_sn_r$. Collapsing the two into a
+single $(\sigma^2_{TDS}+\sigma^2_E)/(n_dn_sn_r)$ term is correct only at
+$n_r=1$; for $n_r>1$ it understates relative error variance and therefore
+overstates $G$. The confirmatory design recommended in the manuscript uses
+$n_r=2$, which is exactly the case where the difference bites.
+\cref{eq:erho-en} matches \texttt{generalizability\_coefficients} in
+\texttt{gstudy.py} term by term, and a consistency test in
+\texttt{tests/test\_gstudy.py} keeps the two from drifting apart.
+\end{remark}
 The D-study evaluates both on a grid of $(n_d,n_s,n_r)$, which is what turns the
 decomposition into an actionable design recommendation: the partial derivative
 with respect to $n_d$ versus $n_s$ says where the next unit of effort buys more
@@ -276,10 +318,16 @@ With $Q\succ 0$, $W\succeq 0$, and $A$ the day-to-period aggregation matrix,
 \begin{equation}
 \bm{x}^*=(Q+A^\top WA)^{-1}(Q\bm{z}+A^\top W\bm{b}).
 \end{equation}
-The matrix $Q$ is built as $\rho_1 I+\rho_2 D_2^\top D_2$ where $D_2$ is the
-second-difference operator, so the first term penalizes departure from the daily
-consensus and the second penalizes roughness in the correction path. Movement
-preservation is thus imposed on the correction rather than on the level.
+The matrix $Q$ is built as $(\lambda_I+\lambda_R)I+\lambda_D D_1^\top D_1$ where
+$D_1$ is the \emph{first}-difference operator: \texttt{\_difference\_penalty} in
+\texttt{benchmark.py} forms the $(n-1)\times n$ difference matrix with offsets
+$[0,1]$ and returns $D_1^\top D_1$. The first term penalizes departure from the
+daily consensus, with $\lambda_R$ the ridge that keeps $Q$ positive definite when
+$\lambda_I=0$; the second penalizes roughness in the correction path. Movement
+preservation is thus imposed on the correction rather than on the level. A
+first-difference penalty charges the \emph{slope} of the correction path; a
+second-difference penalty would charge its curvature, which is a different
+family of benchmarking estimators and is not what this implementation solves.
 
 \subsection{Exact mode}
 
