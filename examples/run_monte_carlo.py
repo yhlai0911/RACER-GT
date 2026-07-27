@@ -32,4 +32,18 @@ out = Path("monte_carlo_results")
 out.mkdir(exist_ok=True)
 result.metrics.to_csv(out / "replication_metrics.csv", index=False)
 result.summary.to_csv(out / "summary.csv", index=False)
-print(result.summary.to_string(index=False))
+result.paired_tests.to_csv(out / "paired_tests.csv", index=False)
+
+print("Mean RMSE by estimator and information set")
+print(
+    result.summary[
+        ["estimator", "benchmarked", "mean_rmse", "sd_rmse", "mcse_rmse", "mean_bias"]
+    ].to_string(index=False)
+)
+print()
+print("Paired comparisons (positive difference favours the first estimator)")
+print(
+    result.paired_tests[
+        ["estimator", "reference", "comparison", "mean_rmse_difference", "t_p_value", "wins"]
+    ].to_string(index=False)
+)
