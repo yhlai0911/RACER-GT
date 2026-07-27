@@ -153,8 +153,36 @@ alternative, no evidence of an advantage.**
 | Cross-pull median | **10.3% lower**, 20/20 |
 | Simple cross-pull mean | No detectable difference (p = 0.15) |
 | Sequential stitching (knitting) | Mechanism confirmed, accuracy difference not significant (p = 0.098 at best) |
+| Sequential stitching, **on real data** | Indistinguishable: max difference 0.195 index points on 0–100 |
 | West (2020) anchor bank | Not compared — needs multiple queries |
 | Djorno et al. (2026) preprocessing | Not compared — evaluated on downstream forecasts |
+
+Every row above except the real-data one comes from the package's own simulator,
+which draws from the model the estimator assumes. Version 1.4.0 adds the first
+test against real Google Trends downloads (`bitcoin`, US, daily, 2024, eight
+chunks). Three things came out of it:
+
+- **The simulator overstates chunk noise by about 4.5×.** Its
+  `chunk_noise_sd = 0.03` produces 2.47× the overlap dispersion actually
+  observed; the matched value is 0.0066, and plain integer rounding accounts for
+  94% of what real overlaps show.
+- **Google Trends normalizes by the window maximum, so overlapping chunks that
+  share a peak day come back identical.** Five of 26 overlaps carried zero
+  information, leaving 4 normalization groups among 8 chunks. The simulator
+  cannot produce this; 1.4.0 reports it as `n_zero_dispersion_edges` and
+  `n_scale_groups` without changing any estimate.
+- **One year of chunks has no power against error accumulation, and that is
+  computable.** This design can accumulate at most 0.270%; reaching 5% would take
+  about 574 informative joins. The mechanism is real and immaterial at any
+  feasible scale.
+
+What real data did confirm is that the proportionality model holds: across 45
+testable triangles the median cycle-closure error is 0.0018 log points, and no
+chunk is left detectably mis-scaled (largest −0.032%).
+
+**Only the calibration stage has been tested this way.** The data is a single
+pull, so consensus weighting, duplicate diagnosis, G-theory, and benchmarking
+remain simulation-only.
 
 Three of RACER-GT's mechanisms have now been tested directly, and all three give
 the same answer. Covariance-adjusted weighting correctly down-weights dependent
