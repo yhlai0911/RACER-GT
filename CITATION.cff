@@ -1,0 +1,17 @@
+cff-version: 1.2.0
+title: RACER-GT
+message: Please cite this software and the associated methodology when using RACER-GT.
+type: software
+authors:
+  - family-names: Lai
+    given-names: Yi-Hao
+version: 0.3.0
+date-released: 2026-07-27
+repository-code: https://github.com/yhlai0911/RACER-GT
+license: MIT
+keywords:
+  - Google Trends
+  - measurement error
+  - generalizability theory
+  - graph calibration
+  - financial econometrics
