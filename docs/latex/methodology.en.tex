@@ -1,0 +1,888 @@
+% RACER-GT methodology manuscript (English).
+% Build:  python scripts/build_docs.py --only methodology --lang en
+\documentclass[12pt,a4paper,oneside]{article}
+\input{_preamble-en}
+\lhead{RACER-GT: Methodology}
+
+\title{\bfseries
+RACER-GT: A Design-Based Statistical Framework for the Reliable\\
+Construction of Long-Horizon Google Trends Time Series\\[0.6em]
+\large Randomized Acquisition, Global Overlap Calibration, Generalizability\\
+Decomposition, and Covariance-Adjusted Consensus
+}
+\author{\racerauthor\\
+\small \raceraffil\\
+\small \texttt{\raceremail}}
+\date{\racerdate\\[0.4em]\small Methodology and software report, version \racerversion}
+
+\begin{document}
+\maketitle
+
+\begin{abstract}
+\noindent Google Trends (GT) is widely used in finance and economics as a
+high-frequency proxy for investor attention, information demand, and sentiment.
+Yet the web interface rescales every request to a $0$--$100$ index, a long daily
+history must be assembled from several short query windows, and repeating an
+identical query can return different numbers. A researcher who downloads a
+series once, stitches the windows sequentially, and feeds the result into a
+financial model therefore inherits four distinct problems at once: segment-scale
+error, dependence across repeated retrievals, zero inflation and rounding at low
+search volume, and attenuation bias in any downstream regression.
+
+This paper develops \RACER{} (Randomized Acquisition, Calibration, Error
+Decomposition, and Reliability for Google Trends). The framework does not claim
+to recover Google's absolute search counts. It instead defines two estimands
+that \emph{are} identified---the expected GT return under a fixed query and a
+fixed retrieval design, and the latent relative search signal on a common
+scale---and then estimates them through eight preregistered stages: (i) a
+balanced, protocol-locked repeated-retrieval experiment; (ii) global weighted
+least squares on the overlap graph, which uses every usable overlap
+simultaneously instead of accumulating error through sequential stitching;
+(iii) exhaustive retention of exact duplicates together with a residual-based
+near-duplicate dependence graph; (iv) a three-facet Generalizability Theory
+decomposition over historical date, collection day, and collection stream;
+(v) a design-based stratified reference estimator and a covariance-adjusted
+minimum-variance consensus; (vi) quadratic-programming temporal benchmarking
+against weekly or monthly aggregates; (vii) separate detection, level, and
+daily-innovation reliability with a locked acceptance decision tree; and
+(viii) propagation of the resulting measurement uncertainty into
+reliability-corrected OLS and SIMEX.
+
+We state the identification conditions explicitly and prove conditional
+unbiasedness and minimum-variance results under them. In twenty controlled
+Monte Carlo replications, \RACER{} attains a mean RMSE of $3.5265$ against a
+known latent truth, compared with $7.2305$ for a single pull, $4.1710$ for the
+cross-pull median, and $3.7253$ for the simple cross-pull mean. These results
+support the claim that the framework reduces reconstruction error under the
+stated data-generating process; they are not a universal optimality guarantee
+across keywords, regions, or GT versions.
+
+\medskip
+\noindent\textbf{Keywords:} Google Trends; investor attention; measurement
+error; experimental design; generalizability theory; graph calibration;
+generalized least squares; temporal benchmarking; SIMEX.
+
+\medskip
+\noindent\textbf{JEL classification:} C18, C43, C81, G14.
+\end{abstract}
+
+\tableofcontents
+\newpage
+
+% =============================================================================
+\section{Introduction}
+
+Search data have become a standard empirical input in finance. \citet{DaEG2011}
+showed that Google search frequency for ticker symbols captures retail investor
+attention in a way that pre-existing proxies do not; \citet{PreisMS2013}
+documented associations between search volume for finance-related terms and
+subsequent market movements; \citet{ChoiVarian2012} established the broader
+``predicting the present'' agenda. A large applied literature now treats a
+downloaded GT series as if it were an observed variable measured without error.
+
+That treatment is difficult to defend once the retrieval mechanism is examined.
+Three features of the GT interface interact badly with long-horizon daily
+research designs.
+
+\paragraph{Per-request renormalization.} Every GT response is rescaled so that
+the maximum value within the requested window equals $100$. The returned numbers
+are therefore not comparable across requests with different windows. Two
+requests that differ only in their end date produce two different scales for the
+same calendar day.
+
+\paragraph{Window-length quantization.} Daily granularity is returned only for
+sufficiently short windows. A multi-year daily history must be requested as a
+sequence of overlapping chunks and reassembled. The conventional reassembly is
+sequential: chunk $2$ is rescaled onto chunk $1$, chunk $3$ onto the rescaled
+chunk $2$, and so on. Scale errors then compound multiplicatively along the
+chain, and the final segment inherits the accumulated error of every preceding
+join.
+
+\paragraph{Non-determinism.} Repeating an identical query on a different day, or
+from a different browsing environment, can return different values.
+\citet{EichenauerIMS2022} document this instability directly and propose
+averaging across repeated samples. Averaging is a substantial improvement over a
+single download, but it raises a further question that the applied literature has
+largely left open: repeated retrievals are \emph{not} independent samples, so
+what exactly does their average estimate, and how much information do $N$
+retrievals actually contain?
+
+\subsection{What this paper does}
+
+We treat data acquisition itself as a designed, auditable measurement
+experiment rather than as a preliminary inconvenience. The central move is to
+refuse the question ``what is the true search volume?'', which the GT system does
+not permit us to answer, and to replace it with two questions that are
+answerable under stated assumptions:
+
+\begin{enumerate}
+\item Under a fixed query specification and a fixed, preregistered retrieval
+design, what is the expected value that GT returns for each historical date?
+\item On a common scale, what is the latent relative search signal that the
+repeated retrievals have in common?
+\end{enumerate}
+
+The first estimand is design-based and requires no model of Google's internal
+sampling; it is unbiased by construction provided the inclusion rule does not
+depend on the realized values. The second is model-based and requires the
+assumptions we make explicit in \cref{sec:identification}. Reporting both, and
+keeping them distinct, is a deliberate methodological choice: the design-based
+quantity is a transparent benchmark against which the model-based reconstruction
+can be judged.
+
+\subsection{Contributions}
+
+\begin{enumerate}
+\item \textbf{A preregistered acquisition design.} Collection day, collection
+stream, technical replicate, chunk order, and time slot are balanced and locked
+before any data are seen, and the entire configuration is committed to a
+SHA-256 protocol hash (\cref{sec:design}). This makes retrieval-side
+researcher degrees of freedom auditable rather than invisible.
+
+\item \textbf{Global overlap-graph calibration.} We replace sequential stitching
+with a single weighted least-squares problem on the graph whose nodes are chunks
+and whose edges are robustly estimated log-scale differences
+(\cref{sec:calibration}). This uses all overlap information at once, removes
+error accumulation, and yields identification, connectivity, conditioning, and
+cycle-consistency diagnostics that sequential stitching cannot provide.
+
+\item \textbf{Dependence accounting rather than deduplication.} Exact duplicates
+are retained in the audit archive and collapsed analytically; near-duplicates are
+identified from residuals after the common signal is removed, so that highly
+dependent retrievals are not counted as independent evidence
+(\cref{sec:duplicates}).
+
+\item \textbf{A three-facet generalizability decomposition.} We estimate variance
+components for historical date, collection day, and collection stream and their
+interactions, separately for the level, the detection indicator, and the daily
+innovation (\cref{sec:gstudy}). The associated D-study answers a question
+practitioners actually face: whether to buy reliability with more collection
+days, more streams, or more technical replicates.
+
+\item \textbf{A covariance-adjusted consensus with an honest effective sample
+size.} Weights solve a minimum-variance problem under the estimated residual
+covariance, and we report spectral and Kish effective pull counts so that
+dependence is visible in the reported precision (\cref{sec:consensus}).
+
+\item \textbf{Propagation into downstream inference.} The measurement
+uncertainty is carried into reliability-corrected OLS and SIMEX rather than
+discarded at the boundary of the measurement exercise (\cref{sec:eiv}).
+\end{enumerate}
+
+\subsection{Scope and what is deliberately not claimed}
+
+\RACER{} estimates a latent \emph{relative} search signal on a common scale. It
+does not estimate absolute Google search counts, and no result in this paper
+should be read as identifying them. All unbiasedness, consistency, and
+minimum-variance statements are conditional on the assumptions listed in
+\cref{sec:identification}, and we state in \cref{sec:scope} exactly which
+guarantees survive which assumption failures.
+
+% =============================================================================
+\section{The measurement problem}\label{sec:problem}
+
+\subsection{Notation}
+
+Let $t \in \facetT = \{1,\dots,T\}$ index historical calendar dates, and let a
+\emph{complete pull} $i$ denote one full reconstruction of the historical
+window under the locked query specification. A complete pull consists of $J$
+fixed, overlapping chunks; chunk $j$ covers a contiguous window
+$W_j \subset \facetT$, and consecutive chunks overlap in at least
+$m_{\min}$ days.
+
+Write $Y_{ijt}$ for the raw GT value returned for date $t$ in chunk $j$ of pull
+$i$. Each pull is characterized by a design cell: a collection day
+$d \in \facetD$, a collection stream $s \in \facetS$, and a technical replicate
+$r \in \facetR$.
+
+\begin{remark}[Streams are composite environments]
+A stream is a fixed combination of device, browser profile, cookie state,
+account state, network route, and IP address. An estimated stream effect is
+therefore \emph{not} an IP effect. Attributing it to the IP address alone would
+require a crossover factorial design that varies IP while holding the remaining
+factors fixed. We are explicit about this because the applied literature
+sometimes treats distinct IP addresses as independent sampling units, which the
+design does not license.
+\end{remark}
+
+\subsection{Three failure modes of naive construction}
+
+Let $X_t$ denote the latent relative search signal we wish to recover.
+
+\paragraph{(F1) Compounding scale error.} Under sequential stitching with
+estimated log-scale corrections $\hat{\ell}_j$, the calibrated value of chunk $J$
+carries the error $\sum_{j=2}^{J}(\hat{\ell}_j - \ell_j)$. Even if each join is
+unbiased, the variance of the accumulated error grows with the number of joins,
+so the oldest or newest part of a long series is systematically less reliable
+than the middle.
+
+\paragraph{(F2) Dependence masquerading as replication.} If $N$ retrievals share
+a common retrieval-side disturbance, the variance of their mean does not fall as
+$1/N$. Reporting $N$ as a sample size overstates precision. In the extreme case
+of exact duplicates, $N$ retrievals contain the information of one.
+
+\paragraph{(F3) Attenuation downstream.} If the constructed index enters a
+regression as a covariate measured with classical additive error of variance
+$\sigma^2_u$, the OLS slope is attenuated by the reliability ratio
+$\lambda = \sigma^2_W/(\sigma^2_W + \sigma^2_u)$. Measurement work that stops at
+the construction stage leaves this bias in place.
+
+% =============================================================================
+\section{Estimands and identification}\label{sec:identification}
+
+\subsection{Two estimands}
+
+\begin{definition}[Retrieval-mixture expectation]\label{def:mixture}
+Fix the query specification $Q$ and a retrieval design that places known
+probability $\pi_h$ on design cell $h \in \mathcal{H}$. The
+\emph{retrieval-mixture expectation} is
+\begin{equation}
+\theta_t^{\pi} \;=\; \sum_{h \in \mathcal{H}} \pi_h \,
+\E\!\left[Y_{t} \mid Q,\, h \right],
+\label{eq:mixture}
+\end{equation}
+where the inner expectation is taken over the GT system's own randomness
+conditional on the cell.
+\end{definition}
+
+\begin{definition}[Latent common-scale signal]\label{def:latent}
+Let $Z_{it}$ denote the calibrated value of pull $i$ at date $t$ after
+within-pull scale alignment and baseline normalization. The \emph{latent
+common-scale signal} $X_t$ is defined by the measurement model
+\begin{equation}
+\Zvec_t \;=\; \one X_t + \evec_t, \qquad \E[\evec_t] = 0, \qquad
+\Var(\evec_t) = \Sig .
+\label{eq:consensus-model}
+\end{equation}
+\end{definition}
+
+\Cref{def:mixture} requires no model of the retrieval error and is estimable by
+stratified averaging. \Cref{def:latent} requires the assumptions below but
+supports variance-optimal estimation.
+
+\subsection{Assumptions}
+
+\begin{assumption}[Protocol invariance]\label{as:protocol}
+Every retrieval in a batch uses the identical query specification, historical
+endpoints, and chunk manifest, and the configuration hash is unchanged across
+the batch.
+\end{assumption}
+
+\begin{assumption}[Value-independent inclusion]\label{as:inclusion}
+Whether a retrieval is included in the analysis does not depend on the values it
+returned. Retrievals may be excluded for documented operational reasons recorded
+before inspection of the values.
+\end{assumption}
+
+\begin{assumption}[Positive-overlap multiplicative model]\label{as:overlap}
+For a date $t$ present in chunks $j$ and $k$ of the same pull, with both raw
+values at or above a prespecified threshold $c_{\min}$,
+\begin{equation}
+Y_{jt} = a_j X_t \exp(\epsilon_{jt}), \qquad a_j > 0,
+\label{eq:chunk-model}
+\end{equation}
+so that with $\ell_j = \log a_j$ and $\nu_{jkt} = \epsilon_{jt} - \epsilon_{kt}$,
+\begin{equation}
+r_{jkt} \;=\; \log Y_{jt} - \log Y_{kt} \;=\; \ell_j - \ell_k + \nu_{jkt}.
+\label{eq:edge-model}
+\end{equation}
+\end{assumption}
+
+\begin{assumption}[Connected overlap graph]\label{as:connected}
+The graph $G=(V,E)$ with $V$ the set of chunks and $E$ the set of chunk pairs
+having at least $m_{\min}$ usable overlapping days is connected.
+\end{assumption}
+
+\begin{assumption}[Conditionally centred edge error]\label{as:edge-mean}
+$\E[\nu_{jkt} \mid (j,k) \in E] = 0$ for every edge, and the edge-level
+estimator is applied to a set of overlap days selected without reference to the
+realized differences.
+\end{assumption}
+
+\begin{assumption}[Common signal with centred retrieval error]\label{as:common}
+Model \eqref{eq:consensus-model} holds with $\Sig$ finite and positive definite
+on the retained pulls.
+\end{assumption}
+
+\begin{remark}[Where each assumption can fail]
+\Cref{as:overlap} fails near zero, because rounding makes the log ratio explode;
+this is why only cells at or above $c_{\min}$ contribute to edges, while zeros
+are retained in the final series and analyzed separately through detection
+reliability. \Cref{as:connected} fails if the chunk design leaves a gap; the
+implementation raises an error rather than silently returning a partially
+identified series. \Cref{as:common} fails if a subset of pulls shares a
+retrieval-side bias that is not shared by the rest; this is precisely what the
+near-duplicate diagnostics in \cref{sec:duplicates} are designed to expose.
+\end{remark}
+
+% =============================================================================
+\section{Stage 0: preregistered acquisition design}\label{sec:design}
+
+The design fixes, before collection begins: the query specification; the
+historical endpoints; the chunk manifest (window length, step, minimum overlap);
+the set of collection-day offsets; the set of streams; the number of technical
+replicates; the time slots; and the acceptance thresholds. Stream order is
+rotated across collection days and chunk order is rotated across pulls, so that
+order effects are balanced rather than confounded with the facets of interest.
+
+The entire configuration is serialized canonically and hashed:
+\begin{equation}
+h \;=\; \mathrm{SHA256}\big\{\mathrm{canonical}(Q, \facetD, \mathcal{C}, \mathcal{T})\big\},
+\label{eq:hash}
+\end{equation}
+where $\mathcal{C}$ collects the calibration settings and $\mathcal{T}$ the
+decision thresholds. Every raw observation may store $h$. Any change to a locked
+setting changes $h$, so configuration drift between the design and the analysis
+is detectable rather than assumed away.
+
+\paragraph{Pilot separation.} An initial monitoring window may be used to check
+for gaps, query drift, exact duplicates, and connectivity. If that inspection
+leads to any change in thresholds, stitching rules, query, code, or decision
+tree, the monitored data must be relabelled as pilot and the confirmatory batch
+restarted. Otherwise the same data are used both to design and to validate the
+acceptance rule, producing data-dependent acceptance bias. For the same reason,
+all GT processing rules must be locked before any return, volatility, spread, or
+VaR result is examined; selecting the construction that gives the most
+significant financial result converts measurement validation into
+outcome-guided model selection.
+
+% =============================================================================
+\section{Stage 1: global overlap-graph calibration}\label{sec:calibration}
+
+\subsection{Robust edge estimation}
+
+For each chunk pair $(j,k)$ with at least $m_{\min}$ usable overlap days, the
+observed log ratios $\{r_{jkt}\}$ are summarized by a Huber M-estimator of
+location \citep{Huber1964}, which solves
+\begin{equation}
+\sum_{t} \psi_c\!\left(\frac{r_{jkt} - \mu}{\hat{\sigma}}\right) = 0,
+\qquad
+\psi_c(u) = \max\{-c, \min(c, u)\},
+\label{eq:huber}
+\end{equation}
+with $c = 1.345$ and $\hat{\sigma}$ a robust scale. The estimator returns the
+location $\hat{r}_{jk}$, a robust scale, and a variance $\hat{v}_{jk}$ that
+becomes the edge precision. Robustness matters here because a small number of
+overlap days can be contaminated by revisions or by the rounding boundary, and a
+sample mean of log ratios is not resistant to those points.
+
+\subsection{Graph weighted least squares}
+
+Collect the edges into a design matrix $B$ with rows indexed by edges: row $e$
+for edge $(j,k)$ has $+1$ in column $j$, $-1$ in column $k$, and zero elsewhere.
+Because only differences are identified, one chunk is fixed as the reference by
+setting $\ell_{\mathrm{ref}} = 0$; the implementation selects the
+highest-degree node, which minimizes the leverage of any single poorly estimated
+edge. With $\bm{r}$ the vector of edge estimates and
+$\Omega = \diag(\hat{v}_e)$,
+\begin{equation}
+\hat{\bm{\ell}} \;=\; \argmin_{\bm{\ell}}\;
+(\bm{r} - B\bm{\ell})^{\top}\Omega^{-1}(\bm{r} - B\bm{\ell})
+\;=\; (B^{\top}\Omega^{-1}B)^{-1}B^{\top}\Omega^{-1}\bm{r}.
+\label{eq:gwls}
+\end{equation}
+
+\begin{proposition}[Identification]\label{prop:ident}
+Under \cref{as:connected}, $B$ has rank $|V| - 1$ after the reference
+normalization, so $\hat{\bm{\ell}}$ in \eqref{eq:gwls} is uniquely defined.
+\end{proposition}
+
+\begin{proof}
+$B$ is the incidence matrix of $G$. For a graph with $|V|$ nodes, the rank of
+the incidence matrix equals $|V|$ minus the number of connected components.
+Connectivity gives one component, hence rank $|V|-1$. Deleting the reference
+column removes exactly the one-dimensional null space spanned by $\one$, leaving
+a full-column-rank matrix and a positive definite normal matrix
+$B^{\top}\Omega^{-1}B$.
+\end{proof}
+
+\begin{proposition}[Conditional unbiasedness and efficiency]\label{prop:gwls}
+Under \cref{as:overlap,as:connected,as:edge-mean}, and treating $\Omega$ as
+known, $\hat{\bm{\ell}}$ is unbiased for $\bm{\ell}$ and is the minimum-variance
+estimator within the class of linear unbiased estimators of $\bm{\ell}$ based on
+the edge estimates.
+\end{proposition}
+
+\begin{proof}
+Write $\bm{r} = B\bm{\ell} + \bm{\nu}$ with $\E[\bm{\nu}] = 0$ by
+\cref{as:edge-mean} and $\Var(\bm{\nu}) = \Omega$. This is a linear model with
+full-column-rank design after normalization, so the Gauss--Markov theorem
+applies directly to the weighted least-squares estimator \eqref{eq:gwls}.
+\end{proof}
+
+\begin{remark}[Why this dominates sequential stitching]
+Sequential stitching is the special case in which only the $J-1$ consecutive
+edges are used and each is applied in turn. \Cref{prop:gwls} uses every edge,
+including the non-consecutive overlaps that a long window and a short step
+generate, and weights each by its estimated precision. It also makes error
+accumulation impossible: no estimate is defined as a function of a previously
+calibrated estimate. In addition, the residual $\bm{r} - B\hat{\bm{\ell}}$ has a
+direct interpretation as cycle inconsistency, which is reported as a diagnostic
+and has no analogue in the sequential procedure.
+\end{remark}
+
+\subsection{Reconstruction and normalization}
+
+Calibrated observations are $\tilde{Y}_{jt} = Y_{jt}\exp(-\hat{\ell}_j)$,
+optionally with a lognormal bias correction. Overlapping dates are aggregated by
+inverse-variance weighting. The resulting series is normalized so that its mean
+over the prespecified baseline window equals $100$. This normalization defines
+the scale of the estimand; it is not an estimate of absolute search volume.
+
+% =============================================================================
+\section{Stage 2: duplicate and dependence diagnostics}\label{sec:duplicates}
+
+Two retrievals may be numerically identical, or nearly so. Both cases violate
+the implicit assumption that repeated pulls contribute independent information,
+but they require different treatment.
+
+\paragraph{Exact duplicates.} Vectors are hashed after rounding to a fixed
+number of decimals. Exact groups are retained in the audit archive---deleting
+them would destroy evidence about the retrieval process---and are collapsed
+analytically before the consensus step, with multiplicity recorded.
+
+\paragraph{Near-duplicates.} Raw correlation between two pulls is uninformative,
+because all pulls share the same strong latent signal and are therefore
+correlated at close to one by construction. The diagnostic instead removes the
+common signal first and examines the residual correlation, together with
+value-anchored measures: mean absolute deviation on the $0$--$100$ scale, exact
+cell agreement, and the Jaccard index of the positive-value sets. Pairs that
+exceed the prespecified thresholds form the edges of a dependence graph.
+
+\begin{remark}[Components are diagnostic, not equivalence classes]
+Connected components of the dependence graph are reported as connectivity sets.
+Membership in a component does \emph{not} imply that every pair inside it
+exceeds the threshold, because connectivity is transitive while the pairwise
+rule is not. The acceptance rule uses the share of the batch occupied by the
+largest component, which is the quantity that actually matters for whether the
+batch is dominated by one dependence cluster.
+\end{remark}
+
+% =============================================================================
+\section{Stage 3: generalizability decomposition}\label{sec:gstudy}
+
+Classical reliability coefficients assign all non-signal variation to a single
+undifferentiated error term. Generalizability Theory
+\citep{Cronbach1972,Brennan2001} instead decomposes it across the facets of the
+measurement design, which is what a researcher needs in order to decide where to
+spend the next unit of collection effort.
+
+For a fully crossed design over historical date $t$, collection day $d$, stream
+$s$, and replicate $r$,
+\begin{equation}
+Y_{tdsr} = \mu + T_t + D_d + S_s + (TD)_{td} + (TS)_{ts} + (DS)_{ds}
++ (TDS)_{tds} + E_{tdsr}.
+\label{eq:gstudy}
+\end{equation}
+Variance components are estimated by the method of moments from the balanced
+ANOVA sums of squares. The implementation validates full crossing and equal cell
+counts before estimating, and raises an error otherwise, rather than silently
+producing components from an unbalanced design.
+
+\begin{remark}[Confounding with a single replicate]
+When $n_r = 1$, $E$ cannot be separated from $(TDS)$; the implementation retains
+the combined term and reports it as such. This is stated rather than hidden
+because it changes the interpretation of the residual component.
+\end{remark}
+
+The decomposition is run on three transformations, which answer three different
+questions:
+\begin{itemize}
+\item \textbf{level}, $Y$ itself: do relative magnitudes reproduce?
+\item \textbf{detection}, $\indic{Y > 0}$: does the zero/non-zero pattern
+reproduce? This is the binding constraint for low-volume terms.
+\item \textbf{innovation}, $\Delta\log(1+Y)$: do daily \emph{changes} reproduce?
+This is the relevant question when the index enters a model in differences,
+and it is systematically harder to satisfy than the level criterion.
+\end{itemize}
+
+The generalizability coefficient for relative decisions and the dependability
+coefficient for absolute decisions follow in the usual way, and the D-study
+evaluates them on a grid of hypothetical designs, so the marginal value of an
+additional collection day can be compared with that of an additional stream.
+
+% =============================================================================
+\section{Stage 4: the design-based reference estimator}\label{sec:designest}
+
+Let $h$ index the prespecified collection-day $\times$ stream cells with target
+weights $\pi_h$ summing to one, and let $n_h$ be the number of completed pulls
+observed in cell $h$. The stratified estimator is
+\begin{equation}
+\hat{\theta}^{\pi}_t \;=\; \sum_{h} \pi_h \,
+\frac{1}{n_h}\sum_{i \in h} Z_{it}.
+\label{eq:design-est}
+\end{equation}
+
+\begin{proposition}[Design unbiasedness]\label{prop:design}
+Under \cref{as:protocol,as:inclusion}, and provided $n_h \ge 1$ for every cell
+with $\pi_h > 0$, $\hat{\theta}^{\pi}_t$ is unbiased for the retrieval-mixture
+expectation $\theta^{\pi}_t$ of \cref{def:mixture}.
+\end{proposition}
+
+\begin{proof}
+Conditional on cell $h$, the retrievals in that cell are draws from the GT
+system under a fixed specification, so
+$\E[n_h^{-1}\sum_{i \in h} Z_{it}] = \E[Y_t \mid Q, h]$ by
+\cref{as:inclusion}, which guarantees that inclusion carries no information
+about the values. Taking the $\pi$-weighted sum over cells and applying
+linearity gives \eqref{eq:mixture}.
+\end{proof}
+
+\begin{remark}[Dependence affects the variance, not the bias]
+\Cref{prop:design} does not require the retrievals to be independent. Dependence
+across pulls inflates $\Var(\hat{\theta}^{\pi}_t)$ but leaves the expectation
+unchanged. This is exactly why the estimator is retained as a transparent
+reference: its validity rests on the design, not on a covariance model that
+could itself be misspecified.
+\end{remark}
+
+% =============================================================================
+\section{Stage 5: covariance-adjusted consensus}\label{sec:consensus}
+
+\subsection{Minimum-variance weights}
+
+Under \cref{as:common}, consider linear estimators
+$\hat{X}_t = \wvec^{\top}\Zvec_t$ with $\wvec^{\top}\one = 1$, which is the
+condition for unbiasedness.
+
+\begin{proposition}[BLUE weights]\label{prop:blue}
+Under \cref{as:common} with $\Sig$ known and positive definite,
+\begin{equation}
+\wvec^{*} \;=\; \frac{\Sig^{-1}\one}{\one^{\top}\Sig^{-1}\one}
+\label{eq:gls-weights}
+\end{equation}
+solves $\min_{\wvec}\, \wvec^{\top}\Sig\wvec$ subject to
+$\wvec^{\top}\one = 1$, and the resulting
+$\hat{X}_t = \wvec^{*\top}\Zvec_t$ has variance
+$(\one^{\top}\Sig^{-1}\one)^{-1}$, the minimum over all linear unbiased
+estimators.
+\end{proposition}
+
+\begin{proof}
+The Lagrangian is
+$L = \wvec^{\top}\Sig\wvec - 2\lambda(\wvec^{\top}\one - 1)$ with first-order
+condition $\Sig\wvec = \lambda\one$, hence $\wvec = \lambda\Sig^{-1}\one$.
+Imposing $\wvec^{\top}\one=1$ gives
+$\lambda = (\one^{\top}\Sig^{-1}\one)^{-1}$ and \eqref{eq:gls-weights}. The
+objective is strictly convex because $\Sig \succ 0$, so the stationary point is
+the unique minimum. Substituting yields the stated variance.
+\end{proof}
+
+\subsection{Stabilization in finite samples}
+
+\Cref{prop:blue} assumes $\Sig$ known. In practice the number of pulls is of the
+same order as, or smaller than, the number of dates used to estimate the
+covariance, so the sample covariance is ill-conditioned and its inverse is
+unstable. The implementation therefore:
+
+\begin{enumerate}
+\item collapses exact duplicates analytically, so that a repeated vector cannot
+inflate the apparent rank;
+\item removes a pull-level offset, so that a constant retrieval bias is not
+mistaken for signal disagreement;
+\item estimates $\Sig$ by Ledoit--Wolf shrinkage \citep{LedoitWolf2004} toward a
+well-conditioned target;
+\item imposes $w_i \ge 0$ and $w_i \le \bar{w}$ while retaining
+$\sum_i w_i = 1$.
+\end{enumerate}
+
+\begin{remark}[What the constraints cost]
+The nonnegativity and cap constraints are stabilization devices, not
+improvements on \cref{prop:blue}. The strict BLUE property belongs to the
+unconstrained solution. The constrained solution is a minimum-variance convex
+combination: it gives up the theoretical optimum in exchange for refusing the
+large offsetting positive and negative weights that an ill-conditioned
+$\hat{\Sig}^{-1}$ would otherwise produce. We regard this as the right trade for
+a measurement instrument that must behave predictably on data the analyst has
+not yet seen.
+\end{remark}
+
+\subsection{Effective number of pulls}
+
+Because dependence is the central concern, the raw count of pulls is not
+reported as a sample size. We report instead the Kish effective count
+\citep{Kish1965} $1/\sum_i w_i^2$ and a spectral effective count derived from the
+eigenvalues of the residual correlation matrix. Both fall below the nominal
+count when retrievals are dependent, and the acceptance rule in
+\cref{sec:decision} is stated in terms of the spectral count.
+
+% =============================================================================
+\section{Stage 6: temporal benchmarking}\label{sec:benchmark}
+
+Long GT histories at daily frequency are not directly comparable to the weekly
+or monthly series that GT returns for the same query over the full window. Let
+$\bm{z}$ be the preliminary daily consensus, $A$ the aggregation matrix mapping
+days to benchmark periods, and $\bm{b}$ the lower-frequency benchmark. The soft
+benchmark solves
+\begin{equation}
+\min_{\bm{x}}\;
+(\bm{x}-\bm{z})^{\top}Q(\bm{x}-\bm{z})
+\;+\;
+(A\bm{x}-\bm{b})^{\top}W(A\bm{x}-\bm{b}),
+\label{eq:benchmark}
+\end{equation}
+where $Q$ combines fidelity to the daily consensus with a smoothness penalty on
+the correction path, and $W$ is the benchmark precision. This is the
+quadratic-programming form of the movement-preservation idea familiar from
+\citet{Denton1971} and \citet{ChowLin1971}; treating $\bm{b}$ as noisy rather
+than exact is appropriate here because the lower-frequency GT series is itself a
+sampled quantity.
+
+\begin{proposition}[Existence and uniqueness]\label{prop:bench}
+If $Q \succ 0$ and $W \succeq 0$, the objective in \eqref{eq:benchmark} is
+strictly convex and the solution is the unique
+$\bm{x}^{*} = (Q + A^{\top}WA)^{-1}(Q\bm{z} + A^{\top}W\bm{b})$.
+\end{proposition}
+
+\begin{proof}
+The Hessian is $2(Q + A^{\top}WA)$, which is positive definite because
+$Q \succ 0$ and $A^{\top}WA \succeq 0$. Setting the gradient to zero gives the
+stated normal equations, whose coefficient matrix is invertible.
+\end{proof}
+
+% =============================================================================
+\section{Stage 7: reliability and the acceptance decision tree}\label{sec:decision}
+
+Three reliability questions are kept separate because they can have different
+answers for the same series: whether the zero/non-zero pattern reproduces
+(detection, summarized by Fleiss' $\kappa$, \citealp{Fleiss1971}), whether
+levels reproduce, and whether daily innovations reproduce.
+
+The acceptance decision is a locked tree evaluated after estimation. Each rule
+compares an observed diagnostic against a prespecified threshold and returns
+pass, fail, or indeterminate. The batch status is
+\begin{itemize}
+\item \textbf{FAIL} if any mandatory rule fails;
+\item \textbf{REVIEW} if no mandatory rule fails but at least one is
+indeterminate;
+\item \textbf{PASS} otherwise.
+\end{itemize}
+
+The rules cover protocol integrity, overlap-graph connectivity, the number of
+numerically distinct pulls, the spectral effective pull count, the share of zero
+observations, level and innovation generalizability, detection agreement,
+concentration of the near-duplicate dependence graph, consensus convergence as
+the last pull is added, and consistency with the lower-frequency benchmark.
+
+\begin{remark}[Indeterminate is not a soft fail]
+The detection rule is not identified when every observation falls in one
+detection category, because $\kappa$ is undefined without variation. The
+implementation reports the rule, marks it indeterminate, and---crucially---makes
+it non-mandatory in exactly that case, so that a series with no zeros is not
+penalized for a coefficient that cannot exist. Conflating ``cannot be computed''
+with ``failed'' would systematically reject high-volume terms.
+\end{remark}
+
+\begin{remark}[What PASS does and does not mean]
+PASS authorizes construction under the locked protocol. It does not establish
+that the keyword has construct validity for the economic concept of interest, it
+does not identify absolute search counts, and it licenses no causal
+interpretation.
+\end{remark}
+
+% =============================================================================
+\section{Stage 8: propagating measurement error downstream}\label{sec:eiv}
+
+Let $W_t = X_t + u_t$ be the constructed index, used as a regressor for an
+outcome $Y_t$ with controls. Under classical additive measurement error, the
+moment-corrected estimator is
+\begin{equation}
+\hat{\beta} \;=\;
+\frac{\bm{W}^{\top}M\bm{Y}}
+{\bm{W}^{\top}M\bm{W} - \tr(M\Omega_u)},
+\label{eq:rc-ols}
+\end{equation}
+where $M$ is the residual maker for the controls and $\Omega_u$ the measurement
+error covariance supplied by the construction stage. Standard errors use a HAC
+estimator \citep{NeweyWest1987}. The implementation raises an error when the
+corrected denominator is non-positive, rather than returning an
+explosive or sign-flipped coefficient; a non-positive denominator means the
+estimated measurement error exceeds the observed regressor variation, which is a
+statement about the data, not a numerical detail to be smoothed over.
+
+As an alternative that does not require the classical structure to hold exactly,
+SIMEX \citep{CookStefanski1994,Carroll2006} adds further known noise on a grid
+of $\lambda$ values, records the resulting estimates, fits an extrapolation
+function, and evaluates it at $\lambda = -1$.
+
+% =============================================================================
+\section{Controlled Monte Carlo evidence}\label{sec:monte-carlo}
+
+The simulation generates a latent signal with realistic dynamics, applies
+collection-day and stream effects, adds correlated retrieval error, splits the
+history into independently normalized chunks, imposes rounding and zeros, and
+optionally injects exact duplicates. Because the latent truth is known by
+construction, estimators can be compared directly.
+
+\begin{table}[H]
+\centering
+\caption{Twenty controlled replications. Lower RMSE is better.}
+\label{tab:mc}
+\begin{tabular}{lrrrr}
+\toprule
+Estimator & Mean RMSE & Mean corr. & Mean innov.\ corr. & Mean peak recall\\
+\midrule
+Single pull        & 7.2305 & 0.9695 & 0.8869 & 0.8868\\
+Cross-pull median  & 4.1710 & 0.9898 & 0.9556 & 0.9447\\
+Simple mean        & 3.7253 & 0.9919 & 0.9747 & 0.9526\\
+\RACER{}           & \textbf{3.5265} & \textbf{0.9927} & 0.9745 & 0.9526\\
+\bottomrule
+\end{tabular}
+\end{table}
+
+Under this data-generating process, \RACER{} reduces mean RMSE by approximately
+$51.2\%$ relative to a single pull and by $5.3\%$ relative to the simple mean.
+
+\begin{remark}[Reporting the losses as well as the wins]
+\RACER{} does not dominate the simple mean on every statistic in
+\cref{tab:mc}: mean innovation correlation is marginally lower
+($0.9745$ versus $0.9747$) and peak recall is identical. We report this because
+the honest summary is that the gain concentrates in level accuracy, where
+scale-error correction and dependence-aware weighting have most to contribute,
+and is negligible for differenced quantities under this particular DGP. A
+practitioner whose model uses only innovations should weigh that accordingly.
+\end{remark}
+
+% =============================================================================
+\section{Scope of the statistical guarantees}\label{sec:scope}
+
+We state precisely what is and is not established.
+
+\begin{enumerate}
+\item Under \cref{as:protocol,as:inclusion}, the stratified design-cell average
+is design-unbiased for the prespecified retrieval-mixture expectation
+(\cref{prop:design}). This holds \emph{without} any independence assumption
+across pulls.
+\item Under \cref{as:overlap,as:connected,as:edge-mean}, the relative log-scale
+parameters are identified and the graph WLS estimator is conditionally unbiased
+and efficient among linear estimators built on the edge estimates
+(\cref{prop:ident,prop:gwls}).
+\item Under \cref{as:common} with $\Sig$ known or consistently estimated, the
+unconstrained GLS weights are minimum-variance among linear unbiased estimators
+(\cref{prop:blue}). The constrained default is a stabilized convex combination
+and does not inherit this optimality.
+\item Given a correct lower-frequency benchmark and an identified constraint
+set, the benchmark estimator is the unique minimizer of an explicit quadratic
+objective (\cref{prop:bench}).
+\item Under classical additive measurement error with a consistent estimate of
+$\Omega_u$, \eqref{eq:rc-ols} corrects attenuation bias.
+\end{enumerate}
+
+\noindent None of these results establishes unbiasedness with respect to
+Google's absolute search counts, and none is claimed to hold unconditionally.
+
+\subsection{Known limitations}
+
+\begin{itemize}
+\item The variance components use balanced method-of-moments estimation. REML
+for unbalanced designs is a planned extension.
+\item Consensus confidence intervals are conditional approximations. A
+full-pipeline moving-block bootstrap---resampling historical blocks and
+re-estimating edges, scales, duplicates, covariance, weights, and the benchmark
+before re-estimating the financial model---is the appropriate procedure for
+confirmatory inference.
+\item Benchmark noise, scale-calibration uncertainty, and tuning-parameter
+uncertainty are not yet fully propagated into the reported intervals.
+\item Zero values may mix genuine zero search, privacy thresholds, sampling, and
+rounding. Version \racerversion{} retains zeros and isolates detection
+reliability, but does not implement an interval-censored latent-count
+likelihood. For high zero-share terms, moving to weekly frequency or to a
+broader Topic is usually more defensible than manufacturing daily values.
+\item Anchor-bank calibration across different queries is documented as an
+extension but is not implemented in version \racerversion{}.
+\item The package is deliberately ingestion-first and embeds no unofficial
+scraper, because endpoints, rate limits, authentication, and terms of service
+change. Collectors need only emit the documented long-format schema.
+\end{itemize}
+
+% =============================================================================
+\section{Conclusion}
+
+Google Trends is a measurement instrument with a documented tendency to return
+different numbers for the same question. Treating its output as an
+error-free observation is not a conservative simplification; it silently imports
+scale error, dependence, and attenuation into whatever model consumes it.
+
+\RACER{} takes the opposite stance. It fixes the retrieval design before any
+data are seen, calibrates all chunks simultaneously on the overlap graph,
+measures rather than assumes the independence of repeated retrievals,
+decomposes the remaining variation across the facets of the design, and carries
+the resulting uncertainty forward into downstream estimation. What it delivers
+is not certainty about Google's internal counts, which is unavailable, but a
+reproducible, auditable, and explicitly conditional estimate of a well-defined
+target, together with a locked rule for deciding whether a given batch of data
+is fit to use at all.
+
+% =============================================================================
+\begin{thebibliography}{99}
+\small
+
+\bibitem[Brennan(2001)]{Brennan2001}
+Brennan, R.~L. (2001). \textit{Generalizability Theory}. Springer, New York.
+
+\bibitem[Carroll et al.(2006)]{Carroll2006}
+Carroll, R.~J., Ruppert, D., Stefanski, L.~A., and Crainiceanu, C.~M. (2006).
+\textit{Measurement Error in Nonlinear Models: A Modern Perspective},
+2nd edition. Chapman and Hall/CRC, Boca Raton.
+
+\bibitem[Choi and Varian(2012)]{ChoiVarian2012}
+Choi, H. and Varian, H. (2012). Predicting the present with Google Trends.
+\textit{Economic Record}, 88(s1), 2--9.
+
+\bibitem[Chow and Lin(1971)]{ChowLin1971}
+Chow, G.~C. and Lin, A. (1971). Best linear unbiased interpolation,
+distribution, and extrapolation of time series by related series.
+\textit{Review of Economics and Statistics}, 53(4), 372--375.
+
+\bibitem[Cook and Stefanski(1994)]{CookStefanski1994}
+Cook, J.~R. and Stefanski, L.~A. (1994). Simulation-extrapolation estimation in
+parametric measurement error models. \textit{Journal of the American
+Statistical Association}, 89(428), 1314--1328.
+
+\bibitem[Cronbach et al.(1972)]{Cronbach1972}
+Cronbach, L.~J., Gleser, G.~C., Nanda, H., and Rajaratnam, N. (1972).
+\textit{The Dependability of Behavioral Measurements: Theory of
+Generalizability for Scores and Profiles}. Wiley, New York.
+
+\bibitem[Da et al.(2011)]{DaEG2011}
+Da, Z., Engelberg, J., and Gao, P. (2011). In search of attention.
+\textit{Journal of Finance}, 66(5), 1461--1499.
+
+\bibitem[Denton(1971)]{Denton1971}
+Denton, F.~T. (1971). Adjustment of monthly or quarterly series to annual
+totals: An approach based on quadratic minimization. \textit{Journal of the
+American Statistical Association}, 66(333), 99--102.
+
+\bibitem[Eichenauer et al.(2022)]{EichenauerIMS2022}
+Eichenauer, V.~Z., Indergand, R., Mart\'{i}nez, I.~Z., and Sax, C. (2022).
+Obtaining consistent time series from Google Trends.
+\textit{Economic Inquiry}, 60(2), 694--705.
+
+\bibitem[Fleiss(1971)]{Fleiss1971}
+Fleiss, J.~L. (1971). Measuring nominal scale agreement among many raters.
+\textit{Psychological Bulletin}, 76(5), 378--382.
+
+\bibitem[Huber(1964)]{Huber1964}
+Huber, P.~J. (1964). Robust estimation of a location parameter.
+\textit{Annals of Mathematical Statistics}, 35(1), 73--101.
+
+\bibitem[Kish(1965)]{Kish1965}
+Kish, L. (1965). \textit{Survey Sampling}. Wiley, New York.
+
+\bibitem[Ledoit and Wolf(2004)]{LedoitWolf2004}
+Ledoit, O. and Wolf, M. (2004). A well-conditioned estimator for
+large-dimensional covariance matrices. \textit{Journal of Multivariate
+Analysis}, 88(2), 365--411.
+
+\bibitem[Newey and West(1987)]{NeweyWest1987}
+Newey, W.~K. and West, K.~D. (1987). A simple, positive semi-definite,
+heteroskedasticity and autocorrelation consistent covariance matrix.
+\textit{Econometrica}, 55(3), 703--708.
+
+\bibitem[Preis et al.(2013)]{PreisMS2013}
+Preis, T., Moat, H.~S., and Stanley, H.~E. (2013). Quantifying trading behavior
+in financial markets using Google Trends. \textit{Scientific Reports}, 3, 1684.
+
+\end{thebibliography}
+
+\end{document}

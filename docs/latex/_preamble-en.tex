@@ -5,6 +5,14 @@
 \setsansfont{Noto Sans}
 \setmonofont{Noto Sans Mono}
 
+% Author-year citations. Loaded here rather than in _common because it must
+% precede hyperref, and because the Chinese manuscript uses numeric citations
+% that natbib's author-year mode would reject. Bibliographies are hand-written
+% thebibliography blocks: biblatex/biber is absent from a BasicTeX install, and
+% a document set that only builds on a full TeX Live is not reproducible enough
+% for this project.
+\usepackage[authoryear,round]{natbib}
+
 \input{_meta}
 \input{_common}
 

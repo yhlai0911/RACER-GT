@@ -16,6 +16,10 @@
 \usepackage{microtype}
 \usepackage{setspace}
 \usepackage{fancyhdr}
+% NOTE: natbib, if wanted, must be loaded by the language preamble *before* this
+% file, because hyperref below has to come after it for citations to become
+% links. It is not loaded globally: the Chinese manuscript uses a numeric
+% bibliography that natbib's author-year mode rejects.
 \usepackage{hyperref}
 \usepackage[nameinlink,noabbrev]{cleveref}
 \usepackage{algorithm}
@@ -36,7 +40,7 @@
 \fancyhf{}
 \rhead{v\racerversion}
 \cfoot{\thepage}
-\setstretch{1.28}
+\setstretch{1.32}
 \setlength{\parskip}{0.35em}
 \setlist[itemize]{leftmargin=2em,itemsep=0.25em,topsep=0.3em}
 \setlist[enumerate]{leftmargin=2.2em,itemsep=0.25em,topsep=0.3em}
