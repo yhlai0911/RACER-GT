@@ -404,6 +404,96 @@ c|u|-\frac{1}{2}c^2, & |u|>c.
 三者的共同結構是：機制按設計運作，且可被量測證實，但其效果在\emph{點估計精度}上是二階的，被 retrieval noise 掩蓋。對使用者而言，這個結論比任何單一數字都重要——它指出本框架的價值不在於產生更準的數列，而在於產生\emph{可被判斷}的數列。有效 pull 數、依賴結構、cycle 不一致統計量、每日條件標準誤與可傳遞的測量不確定性，都是 RMSE 無法表達也無法取代的資訊。
 \end{remark}
 
+\subsection{真實 Google Trends 資料上的校準檢驗}
+\label{sec:realdata}
+
+上一小節的所有證據都出自本套件自己的模擬器，而模擬器是依估計量所假設的比例模型抽樣的。這是循環論證：它能顯示估計量解出了我們交給它的問題，卻不能顯示那個問題就是真實的問題。本節把校準階段套用在真實下載的資料上：關鍵字 \texttt{bitcoin}、地區美國、日頻、2024 全年，180 天視窗、30 天步進共 8 個 chunk，1{,}440 筆觀測。轉換器為 \texttt{examples/ingest\_trends\_csv.py}，分析為 \texttt{examples/run\_real\_data\_calibration.py}。
+
+\textbf{先說這份資料不能檢驗什麼。}這是\emph{單一 pull}——一個蒐集日、一個 stream、一次重複。跨 pull 的所有機制因此\emph{完全無法}在此檢驗：共變異數調整的共識加權、exact 與 near-duplicate 診斷、三面向 G-theory 的變異成分、有效 pull 數、\cref{sec:calexp} 的 RMSE 比較，全都需要跨日、跨環境的重複收集。本節不觸及它們，也不對它們作任何宣稱。真正要檢驗完整設計，需要\cref{tab:recommended} 所述規格下為期一個月的收集計畫。此外，真實資料沒有 latent truth，因此\textbf{無法計算重建誤差}，兩個方法都不能被稱為較準確。
+
+\subsubsection{GT 的正規化會製造零資訊重疊}
+
+第一個發現是模擬器結構上產生不了的。GT 以\emph{該次請求視窗內的最大值}正規化每個 chunk。若兩個視窗都涵蓋同一個峰值日，兩者就被同一個數除，取整後在重疊區\emph{逐格完全相同}。本資料中 C0001--C0003 的最大值同為 2024-03-05、C0004--C0005 同為 2024-08-05、C0007--C0008 同為 2024-12-05，於是 26 條重疊 edge 中有 5 條的 log ratio 恆等於零且無離散度：8 個 chunk 實際上只構成\textbf{4 個正規化群}。
+
+這樣的 edge 不帶任何尺度資訊，卻仍以 \texttt{edge\_variance\_floor} 與 \texttt{max\_edge\_weight} 所允許的權重進入加權最小平方——那是數值安全常數，不是統計論證。\texttt{simulate\_racergt\_data} 在取視窗最大值\emph{之前}先對每個 chunk 乘上連續的對數常態噪音，因此永遠不會產生完全相同的整數：520 條模擬 edge 中零筆退化，真實資料 26 條中 5 筆。1.4.0 因此在 \texttt{CalibrationResult.diagnostics} 新增 \texttt{n\_zero\_dispersion\_edges}、\texttt{n\_informative\_edges} 與 \texttt{n\_scale\_groups} 三個鍵。它們\textbf{只作報告，不改變任何估計值}；退化 edge 的處理是使用者的判斷，本套件不代為決定。
+
+退化率取決於數列的峰值結構，\textbf{不可由單一關鍵字外推}。機制本身是演繹的（共用視窗最大值 $\Rightarrow$ 重疊區同一組整數），但比例是實證問題。
+
+\subsubsection{比例假設在真實資料上成立}
+
+校準階段整個建立在「重疊的 chunk 至多差一個常數比例」之上。重疊長達 150 天，此假設被高度過度識別，可直接檢驗。
+
+\begin{table}[H]
+\centering
+\small
+\caption{真實資料上的校準診斷。bitcoin、美國、日頻、2024 年，8 個 chunk，單一 pull。}
+\label{tab:realdata}
+\begin{tabular}{lr}
+\toprule
+診斷量 & 數值\\
+\midrule
+重疊圖是否連通 & 是\\
+Edge 數（spanning path 僅用 7 條） & 26\\
+獨立 cycle 數 & 19\\
+可檢驗的三角形數 & 45\\
+Normal matrix condition number & 10.82\\
+Weighted edge RMSE & 0.001379\\
+\midrule
+零離散度 edge & 5 / 26\\
+正規化群數 & 4（共 8 個 chunk）\\
+\midrule
+三角形閉合誤差中位數 & 0.001783 log points\\
+三角形閉合誤差最大值 & 0.011769 log points（尺度誤差 1.184\%）\\
+重疊內漂移 $p<0.05$ 的比例 & 1 / 21（隨機期望 1.05）\\
+校準後殘餘錯尺度最大值 & $-0.032\%$（全部 $|t|<0.6$）\\
+\bottomrule
+\end{tabular}
+\end{table}
+
+三角形閉合檢定是本框架相對逐段 stitching 的核心優勢之一，且\textbf{逐段 stitching 在結構上無法提供}：模型要求任意三個互相重疊的 chunk 滿足 $d_{ij}+d_{jk}=d_{ik}$，而 stitching 只使用路徑上的 edge，既看不到也報告不了違反。45 個三角形的閉合誤差中位數為 $0.0018$ log points，最大 $0.0118$（相當於 $1.18\%$ 的尺度誤差）。21 條有效重疊中僅 1 條的漂移檢定 $p<0.05$，隨機期望為 $1.05$。校準後每個 chunk 對重建數列的平均對數偏離全部不顯著，最大者僅 $-0.032\%$。比例假設沒有被真實資料推翻。
+
+\subsubsection{模擬器的 chunk 噪音高估約 4.5 倍}
+
+這份資料無法檢驗 F1，卻能決定性地檢驗另一件事：模擬器描述得對不對。\texttt{SimulationSettings.chunk\_noise\_sd} 預設 $0.03$，在取最大值前對每個 chunk 每一天乘上獨立的對數常態擾動。真實資料的重疊 log ratio 離散度中位數為 $0.0188$。
+
+以封閉式的整數捨入下限相減會得到 $0$，但那個下限假設兩個 chunk\emph{獨立}捨入。實際上兩者捨入的是只差一個尺度因子的同一組數字，捨入誤差高度相關，封閉式因而高估下限，並使推得的噪音偏向零——正是對本結論有利的方向。本文因此不採用它，改以參數化 bootstrap 直接重現生成機制：取校準後的日頻數列，乘上指定強度的 chunk 噪音，除以視窗最大值，取整，再用與真實資料完全相同的方式計算離散度。
+
+\begin{table}[H]
+\centering
+\small
+\caption{掃描 \texttt{chunk\_noise\_sd} 並與觀測到的重疊離散度 $0.018814$ 比對。每格 200 次重複。}
+\label{tab:chunknoise}
+\begin{tabular}{lrr}
+\toprule
+$\sigma_{\text{chunk}}$ & 重疊離散度中位數 & 對觀測值之比\\
+\midrule
+$0$（僅整數捨入） & 0.017757 & 0.94\\
+$0.005$ & 0.017644 & 0.94\\
+$0.0066$（\textbf{配適值}） & 0.018814 & 1.00\\
+$0.010$ & 0.021892 & 1.16\\
+$0.020$ & 0.033624 & 1.79\\
+$0.030$（\textbf{模擬器預設}） & 0.046424 & 2.47\\
+\bottomrule
+\end{tabular}
+\end{table}
+
+僅整數捨入就解釋了觀測離散度的 $94\%$；配適值為 $\sigma_{\text{chunk}}\approx 0.0066$，約為模擬器預設的 $1/4.5$。低於約 $0.005$ 時曲線在 Monte Carlo 誤差內持平，捨入主導，該區間不可識別；但 $0.03$ 會產生 $2.47$ 倍於觀測值的離散度，可被明確排除。
+
+這對 \cref{sec:calexp} 的解讀是\emph{加強而非否定}：該比較是在校準噪音被高估數倍的情境下進行的，而即使在那個對 F1 有利的情境中，全域圖仍未取得可偵測的精度優勢。以真實噪音水準重跑只會讓差距更小。
+
+\subsubsection{一年的 chunk 對 F1 沒有檢定力，而這可以量化}
+
+兩個方法在真實資料上幾乎不可區分：相關係數 $1.000000$，逐日相對差中位數 $0.00026$、最大 $0.00123$，在 0--100 的指數尺度上最大絕對差僅 $0.195$ 點。F1 的特徵訊號也不存在——尺度差異並未隨鏈位置成長（末三段對前三段之比 $1.03$；Spearman $\rho=-0.024$，$p=0.955$）。
+
+但這\textbf{不構成 F1 被推翻的證據}，因為這個設計根本累積不出東西，而這一點可以直接算出來。F1 靠累積運作，鏈末端的誤差變異數是所經各接合變異數之和，零離散度的接合貢獻為零。本設計 7 個接合中僅 3 個帶資訊，有效接合的 se 中位數為 $0.002037$，鏈末端可累積的標準差因此僅 $0.0027$ log points，即 $\mathbf{0.270\%}$。反解可得：累積到 $1\%$ 需約 24 個有效接合，$5\%$ 需 574 個，$10\%$ 需 2{,}189 個。
+
+\begin{remark}[F1 是真的，但在任何可行的設計中都不重要]
+\label{rem:f1scale}
+以真實觀測到的重疊長度與離散度計算，逐段 stitching 的尺度誤差累積要達到 $5\%$ 需要約 574 個有效接合。以 30 天步進計，那遠超過 Google Trends 服務存在的年數。\cref{sec:calexp} 的模擬之所以看得到 $4.75$ 倍的成長，是因為模擬器的 chunk 噪音高估了約 4.5 倍。
+
+因此本文對 F1 的正確陳述是：機制為真且可被量測，但在真實資料的雜訊水準下，其累積量在任何現實可行的 GT 設計中都不具實質意義。全域圖校準值得採用的理由不是它更準，而是\cref{tab:realdata} 中那些逐段 stitching 結構上無法提供的診斷——連通性、condition number、cycle 閉合誤差。這與 \cref{rem:pattern} 的結論一致，並把它推進了一步：先前三次是「機制成立但效果二階」，本次是「機制成立且效果的上界可被計算」。
+\end{remark}
+
 \section{第二階段：跨 pull 相依性、duplicates 與量測可靠度}
 
 \subsection{Exact duplicate audit}
@@ -825,6 +915,7 @@ racergt run protocol_bundle/protocol.lock.yaml raw_chunks.csv \
 每一次 run 產生 design-weighted reference、final latent series、calibration scales、edge residuals、duplicate groups/components、pull covariance、weights、G-study tables、reliability/convergence、benchmark fit、decision tree 與 diagnostic report。所有中間結果可供 replication，而不是只輸出一條無法稽核的平滑序列。
 
 \section{Monte Carlo 驗證}
+\label{sec:montecarlo}
 
 \subsection{資料生成過程}
 
@@ -1016,13 +1107,15 @@ Downstream model & 主結果使用 final consensus；另以 sample-specific pull
 
 而 Google Trends 對此有嚴格限流。作者在一次測試中，explore 端點回傳 200，但第\emph{二}次 widgetdata 請求即回傳 HTTP 429，等待 30 秒後重試仍為 429。單一觀察不足以量化 Google 的限流政策——它可能隨 IP、時段、帳號狀態與請求模式而異——但已足以說明取得可行性不是可以略過的工程細節。
 
-限流亦不限於程式化存取。同一時段以一般瀏覽器（已登入、人工導航）開啟 Trends 網頁時，網頁\emph{自身}前端發出的 \texttt{widgetdata} 請求同樣回傳 429，而頁面圖表卻正常顯示——顯示的是快取內容。這對研究者有直接的操作意涵：\textbf{Trends 前端會以快取遮蔽失敗的請求，使用者無法從畫面判斷所見數列是否為本次取得的結果}。任何以手動匯出為取得途徑的協定，都必須獨立記錄 response 狀態與 \texttt{raw\_response\_hash}，而不能以「圖表有顯示」作為取得成功的判準；\cref{sec:contract} 要求保存原始 response 的理由於此更為明確。
+限流亦不限於程式化存取。同一時段以一般瀏覽器（已登入、人工導航）開啟 Trends 網頁時，網頁\emph{自身}前端發出的 \texttt{widgetdata} 請求同樣回傳 429，而頁面圖表卻正常顯示——顯示的是快取內容。這對研究者有直接的操作意涵：\textbf{Trends 前端會以快取遮蔽失敗的請求，使用者無法從畫面判斷所見數列是否為本次取得的結果}。任何以手動匯出為取得途徑的協定，都必須獨立記錄 response 狀態與 \texttt{raw\_response\_hash}，而不能以「圖表有顯示」作為取得成功的判準；adapter contract 要求保存原始 response 的理由於此更為明確。
 
 真正的問題不在等待時間，而在第 4 節對 \texttt{collection\_day} 的定義：它是「一次完整歷史重建」所對應的序數層級，而 G-theory 的 $D$ facet 與\cref{eq:relativeerror}的 $\sigma_{TD}^2$ 都建立在這個層級上。若一次完整重建需時 4.4 小時且會被限流反覆中斷，該 pull 究竟屬於哪一個 collection day 便不再明確；跨越午夜的 pull 更會同時觸及 Djorno et al.（2026）所述的 cache 重置邊界（\cref{rem:cache}），使得同一個 pull 內部的 chunks 來自兩個不同的抽樣批次。這不是量測誤差，而是 facet 定義的失效。
 
 本文因此建議：正式研究應\emph{先}以 \texttt{examples/collect\_google\_trends.py --preview} 估算請求預算，再據以決定 historical window 與 step，使單一 pull 的取得時間短於 cache 週期。以單一年度、180 日 window、30 日 step 計，一個 pull 僅需 8 個 chunks、16 次請求，可在數分鐘內完成——這才是使 collection day 保持為良定義 facet 的設計。以 16.6 年的窗長搭配 15 日 step，在目前的限流下並不可行，本文先前未指出這一點。
 
 第六，受限 GLS weights 的穩定性優於 unrestricted inverse covariance，但其最佳性取決於預先指定 constraint set。應報告 diagonal covariance、empirical covariance、Ledoit--Wolf、unrestricted GLS、equal weights 與 median 的 sensitivity table。
+
+第七，\textbf{真實資料的驗證目前只覆蓋校準階段}。\cref{sec:realdata} 使用的是單一 pull，因此第二階段以後的每一個機制——共識加權、duplicate 診斷、G-theory 變異成分、可靠度指標、benchmark——在真實 Google Trends 資料上\emph{全部未經檢驗}，其證據仍完全來自模擬。而\cref{tab:chunknoise} 已顯示模擬器在校準階段高估了 chunk 噪音約 4.5 倍，這使得「模擬器在其他階段的參數是否同樣失真」成為一個開放且重要的問題：若跨 pull 的 retrieval noise、day effect 或 stream effect 也被高估，則\cref{sec:montecarlo} 的相對表現數字同樣需要重新檢視。本文\textbf{不宣稱}模擬證據可外推至真實資料的跨 pull 行為。要填補這個缺口，需要跨蒐集日、跨環境的重複收集；\cref{tab:recommended} 的規格下，3 個 stream $\times$ 7 個蒐集日 $=$ 21 個 pull、168 次下載，是一個月日曆時間可完成的設計。
 
 \subsection{必要的穩健性檢驗}
 

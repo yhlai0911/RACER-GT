@@ -168,10 +168,30 @@ no evidence of an advantage.</p>
 <tr><td>Cross-pull median</td><td><strong>10.3% lower</strong>, 20/20</td></tr>
 <tr><td>Simple cross-pull mean</td><td>No detectable difference (p = 0.15)</td></tr>
 <tr><td>Sequential stitching (knitting)</td><td>Mechanism confirmed, accuracy difference not significant (p = 0.098 at best)</td></tr>
+<tr><td>Sequential stitching, <strong>on real data</strong></td><td>Indistinguishable: max difference 0.195 index points on 0&ndash;100</td></tr>
 <tr><td>West (2020) anchor bank</td><td>Not compared &mdash; needs multiple queries</td></tr>
 <tr><td>Djorno et al. (2026) preprocessing</td><td>Not compared &mdash; evaluated on downstream forecasts</td></tr>
 </tbody>
 </table>
+<div class="note">
+Every row except the real-data one comes from the package's own simulator, which draws from the model
+the estimator assumes. Version 1.4.0 adds the first test against real Google Trends downloads
+(<code>bitcoin</code>, US, daily, 2024, eight chunks).
+<ul>
+<li><strong>The simulator overstates chunk noise by about 4.5&times;.</strong> Its
+<code>chunk_noise_sd = 0.03</code> produces 2.47&times; the overlap dispersion actually observed; the
+matched value is 0.0066, and plain integer rounding accounts for 94% of what real overlaps show.</li>
+<li><strong>Trends normalizes by the window maximum, so overlapping chunks sharing a peak day come back
+identical.</strong> Five of 26 overlaps carried zero information, leaving 4 normalization groups among
+8 chunks. The simulator cannot produce this; 1.4.0 reports it without changing any estimate.</li>
+<li><strong>One year of chunks has no power against error accumulation, and that is computable.</strong>
+This design can accumulate at most 0.270%; reaching 5% would take about 574 informative joins.</li>
+</ul>
+Real data did confirm the proportionality model: across 45 testable triangles the median cycle-closure
+error is 0.0018 log points, and no chunk is left detectably mis-scaled (largest &minus;0.032%).
+<strong>Only the calibration stage has been tested this way</strong> &mdash; the data is a single pull, so
+consensus weighting, duplicate diagnosis, G-theory, and benchmarking remain simulation-only.
+</div>
 <div class="note">
 Three mechanisms have been tested directly and all three give the same answer. Covariance-adjusted
 weighting correctly down-weights dependent pulls (weights correlate &minus;0.562 with shared residual

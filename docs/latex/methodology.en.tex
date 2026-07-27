@@ -648,6 +648,184 @@ information that RMSE neither expresses nor replaces.
 \end{remark}
 
 % =============================================================================
+\subsection{Calibration on real Google Trends data}\label{sec:realdata}
+
+All of the evidence above comes from the package's own simulator, which draws
+from the same proportionality model the estimator assumes. That is circular: it
+can show that the estimator solves the problem it was handed, never that the
+problem is the right one. This section runs the calibration stage on real
+downloads --- keyword \texttt{bitcoin}, United States, daily, calendar year 2024,
+eight chunks on 180-day windows with a 30-day step, 1{,}440 observations. The
+converter is \texttt{examples/ingest\_trends\_csv.py} and the analysis is
+\texttt{examples/run\_real\_data\_calibration.py}.
+
+\textbf{What this data cannot test, stated first.} It is a \emph{single pull}:
+one collection day, one stream, one replicate. Every cross-pull mechanism is
+therefore \emph{entirely} untested here --- covariance-adjusted consensus
+weighting, exact and near-duplicate diagnosis, the three-facet variance
+components, effective pull counts, and the RMSE comparison of
+\cref{sec:calexp} all require repeated collection across days and environments.
+This section does not touch them and claims nothing about them. Testing the full
+design requires the month-long collection schedule of \cref{sec:design}. Real
+data also carries no latent truth, so \textbf{reconstruction error cannot be
+computed} and neither method can be called more accurate.
+
+\subsubsection{The normalization creates zero-information overlaps}
+
+The first finding is one the simulator cannot structurally produce. Trends
+divides each chunk by the maximum inside \emph{that request's own window}. When
+two windows contain the same peak day they are divided by the same number and,
+after rounding, are \emph{identical cell for cell} wherever they overlap. Here
+C0001--C0003 all peak on 2024-03-05, C0004--C0005 on 2024-08-05, and
+C0007--C0008 on 2024-12-05, so 5 of the 26 overlap edges have a log ratio that
+is identically zero with no dispersion: the eight chunks form only \textbf{four
+normalization groups}.
+
+Such an edge carries no scale information, yet it still enters the weighted
+least-squares fit at whatever weight \texttt{edge\_variance\_floor} and
+\texttt{max\_edge\_weight} permit --- numerical safety constants, not a
+statistical argument. \texttt{simulate\_racergt\_data} multiplies every chunk by
+continuous lognormal noise \emph{before} taking the window maximum and so never
+returns identical integers: zero degenerate edges in 520 simulated, against 5 in
+26 real ones. Version 1.4.0 therefore adds
+\texttt{n\_zero\_dispersion\_edges}, \texttt{n\_informative\_edges} and
+\texttt{n\_scale\_groups} to \texttt{CalibrationResult.diagnostics}. They
+\textbf{report only and change no estimate}; what to do about a degenerate edge
+is the analyst's judgment, not the package's.
+
+The rate depends on the series' peak structure and \textbf{cannot be
+extrapolated from one keyword}. The mechanism is deductive --- a shared window
+maximum implies an identical overlap --- but the proportion is an empirical
+question.
+
+\subsubsection{The proportionality assumption survives}
+
+The whole calibration stage rests on overlapping chunks being proportional up to
+a constant. The overlaps run to 150 days, so the assumption is heavily
+over-identified and can be checked directly.
+
+\begin{table}[H]
+\centering
+\small
+\caption{Calibration diagnostics on real data. Bitcoin, United States, daily,
+2024; eight chunks, one pull.}
+\label{tab:realdata}
+\begin{tabular}{lr}
+\toprule
+Diagnostic & Value\\
+\midrule
+Overlap graph connected & yes\\
+Edges (a spanning path uses 7) & 26\\
+Independent cycles & 19\\
+Testable triangles & 45\\
+Normal matrix condition number & 10.82\\
+Weighted edge RMSE & 0.001379\\
+\midrule
+Zero-dispersion edges & 5 / 26\\
+Normalization groups & 4 (among 8 chunks)\\
+\midrule
+Median triangle closure error & 0.001783 log points\\
+Maximum triangle closure error & 0.011769 log points (1.184\% scale error)\\
+Overlaps with drift $p<0.05$ & 1 / 21 (1.05 expected by chance)\\
+Largest residual mis-scaling & $-0.032\%$ (all $|t|<0.6$)\\
+\bottomrule
+\end{tabular}
+\end{table}
+
+Triangle closure is one of the framework's central advantages over sequential
+stitching, and \textbf{stitching cannot supply it at all}: the model forces
+$d_{ij}+d_{jk}=d_{ik}$ for any three mutually overlapping chunks, while a
+spanning path uses only the edges it walks and can neither see nor report a
+violation. Across 45 triangles the median closure error is $0.0018$ log points
+and the largest is $0.0118$, a $1.18\%$ scale error. Only 1 of 21 informative
+overlaps shows drift at $p<0.05$, against $1.05$ expected by chance. After
+calibration no chunk deviates significantly from the reconstructed series, the
+largest being $-0.032\%$. Real data does not refute the proportionality model.
+
+\subsubsection{The simulator overstates chunk noise by about 4.5 times}
+
+This data cannot test F1, but it decisively tests something else: whether the
+simulator describes reality. \texttt{SimulationSettings.chunk\_noise\_sd}
+defaults to $0.03$, multiplying every chunk on every day by an independent
+lognormal disturbance before the maximum is taken. The real overlaps have a
+median log-ratio dispersion of $0.0188$.
+
+Subtracting a closed-form integer-rounding floor returns $0$, but that floor
+assumes the two chunks round \emph{independently}. They do not: they round the
+same numbers differing only by a scale factor, so their rounding errors are
+correlated, the closed form overstates itself, and the recovered noise is biased
+towards zero --- the direction that flatters this conclusion. It is therefore not
+used. A parametric bootstrap replaces the assumption with the mechanism: take the
+calibrated daily series, multiply by chunk noise at a stated level, divide by the
+window maximum, round, and measure dispersion exactly as on the real chunks.
+
+\begin{table}[H]
+\centering
+\small
+\caption{Sweeping \texttt{chunk\_noise\_sd} against the observed overlap
+dispersion of $0.018814$. Two hundred replications per level.}
+\label{tab:chunknoise}
+\begin{tabular}{lrr}
+\toprule
+$\sigma_{\text{chunk}}$ & Median overlap dispersion & Ratio to observed\\
+\midrule
+$0$ (rounding only) & 0.017757 & 0.94\\
+$0.005$ & 0.017644 & 0.94\\
+$0.0066$ (\textbf{matched}) & 0.018814 & 1.00\\
+$0.010$ & 0.021892 & 1.16\\
+$0.020$ & 0.033624 & 1.79\\
+$0.030$ (\textbf{simulator default}) & 0.046424 & 2.47\\
+\bottomrule
+\end{tabular}
+\end{table}
+
+Integer rounding alone accounts for $94\%$ of the observed dispersion, and the
+matched value is $\sigma_{\text{chunk}}\approx 0.0066$, about $4.5$ times smaller
+than the simulator's default. Below about $0.005$ the curve is flat within Monte
+Carlo error --- rounding dominates and the parameter is not identified there ---
+but $0.03$ produces $2.47$ times the observed dispersion and is firmly excluded.
+
+This \emph{strengthens} rather than undermines \cref{sec:calexp}. That comparison
+was run in a regime where calibration noise was several times too large, and even
+in that F1-friendly regime the global graph secured no detectable accuracy
+advantage. Rerunning it at realistic noise would only shrink the gap.
+
+\subsubsection{One year of chunks has no power against F1, and that is computable}
+
+The two methods are nearly indistinguishable on real data: correlation
+$1.000000$, median daily relative difference $0.00026$, maximum $0.00123$, and a
+largest absolute difference of $0.195$ points on the 0--100 index scale. F1's
+signature is likewise absent --- the scale discrepancy does not grow along the
+chain (last three positions against first three, ratio $1.03$; Spearman
+$\rho=-0.024$, $p=0.955$).
+
+This is \textbf{not evidence against F1}, because the design cannot accumulate
+anything, and that can be computed rather than asserted. F1 operates by
+accumulation, the terminal error variance of a chain is the sum of the variances
+of the joins it walks, and a zero-dispersion join contributes nothing. Only 3 of
+the 7 joins here are informative; their median standard error is $0.002037$, so
+the terminal accumulated standard deviation is $0.0027$ log points, or
+$\mathbf{0.270\%}$. Inverting that: reaching $1\%$ needs about 24 informative
+joins, $5\%$ needs 574, and $10\%$ needs 2{,}189.
+
+\begin{remark}[F1 is real and immaterial at any feasible scale]\label{rem:f1scale}
+At the overlap lengths and dispersions actually observed, sequential stitching
+would need roughly 574 informative joins before accumulated scale error reached
+$5\%$. At a 30-day step that is far more than the years Google Trends has
+existed. The $4.75$-fold growth visible in \cref{sec:calexp} appears because the
+simulator overstates chunk noise by about a factor of 4.5.
+
+The correct statement about F1 is therefore that the mechanism is real and
+measurable, but that at realistic noise levels its accumulation is immaterial in
+any feasible Google Trends design. The reason to prefer global graph calibration
+is not accuracy but the diagnostics in \cref{tab:realdata} that a spanning path
+structurally cannot provide: connectivity, condition number, and cycle closure.
+This agrees with \cref{rem:pattern} and sharpens it: the first three results were
+mechanisms that work with second-order effects, and this one is a mechanism that
+works whose effect has a computable upper bound.
+\end{remark}
+
+% =============================================================================
 \section{Stage 2: duplicate and dependence diagnostics}\label{sec:duplicates}
 
 Two retrievals may be numerically identical, or nearly so. Both cases violate
@@ -1162,6 +1340,21 @@ likelihood. For high zero-share terms, moving to weekly frequency or to a
 broader Topic is usually more defensible than manufacturing daily values.
 \item Anchor-bank calibration across different queries is documented as an
 extension but is not implemented in version \racerversion{}.
+\item \textbf{Real-data validation covers the calibration stage only.}
+\Cref{sec:realdata} uses a single pull, so every mechanism from Stage 2 onward
+--- consensus weighting, duplicate diagnosis, variance components, reliability
+coefficients, benchmarking --- is \emph{entirely untested} on real Google Trends
+data and rests on simulation alone. \Cref{tab:chunknoise} has already shown the
+simulator overstating chunk noise by about a factor of 4.5 in the one stage where
+a comparison was possible, which makes it an open and consequential question
+whether its other parameters are distorted the same way: if cross-pull retrieval
+noise, day effects, or stream effects are also overstated, the relative
+performance figures in \cref{sec:monte-carlo} need re-examination too. We
+\textbf{do not claim} that simulation evidence extrapolates to cross-pull
+behaviour on real data. Closing the gap requires repeated collection across
+collection days and stream environments; under the recommended protocol, three
+streams by seven collection days is 21 pulls and 168 downloads, which is a
+month of calendar time.
 \item The package is deliberately ingestion-first and embeds no unofficial
 scraper, because endpoints, rate limits, authentication, and terms of service
 change. Collectors need only emit the documented long-format schema.
