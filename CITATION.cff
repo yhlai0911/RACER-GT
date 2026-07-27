@@ -17,7 +17,7 @@ authors:
     email: "yhlai@mail.dyu.edu.tw"
     affiliation: "Department of Finance, Da-Yeh University"
   - name: "RACER-GT contributors"
-version: 1.0.0
+version: 1.1.0
 date-released: 2026-07-27
 license: MIT
 repository-code: "https://github.com/yhlai0911/RACER-GT"
