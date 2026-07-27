@@ -30,6 +30,15 @@ class SimulationSettings:
     shared_day_noise_weight: float = 0.50
     benchmark_noise_sd: float = 1.2
     integer_rounding: bool = True
+    # Dependence heterogeneity. With the settings above every pull carries the same
+    # error structure, so the residual covariance is block-equicorrelated and its
+    # minimum-variance weights are equal weights: GLS has nothing to exploit. These
+    # two options place a subset of pulls behind one shared cache disturbance that
+    # cuts across collection days and streams, so the dependence is neither uniform
+    # nor recoverable from the design facets -- only from the residual covariance.
+    # cache_cluster_fraction = 0 reproduces the homogeneous behaviour exactly.
+    cache_cluster_fraction: float = 0.0
+    cache_cluster_weight: float = 0.0
 
 
 def _ar1_noise(n: int, phi: float, sd: float, rng: np.random.Generator) -> np.ndarray:
@@ -127,15 +136,30 @@ def simulate_racergt_data(
         d: _ar1_noise(len(dates), 0.85, settings.retrieval_noise_sd, rng) for d in day_levels
     }
 
+    # Pulls served from a common cache share one disturbance. Membership is drawn at
+    # random across the design rather than following a day or a stream, so the extra
+    # dependence cannot be absorbed by the design facets and has to be found in the
+    # residual covariance -- which is the situation the GLS weights exist for.
+    cache_members: set[str] = set()
+    cache_noise = np.zeros(len(dates))
+    if settings.cache_cluster_fraction > 0 and settings.cache_cluster_weight > 0:
+        all_ids = schedule["pull_id"].tolist()
+        n_cache = round(settings.cache_cluster_fraction * len(all_ids))
+        if n_cache >= 2:
+            cache_members = set(rng.choice(all_ids, size=n_cache, replace=False).tolist())
+            cache_noise = _ar1_noise(len(dates), 0.85, settings.retrieval_noise_sd, rng)
+
     pull_latent: dict[str, np.ndarray] = {}
     for row in schedule.itertuples(index=False):
         idiosyncratic = _ar1_noise(len(dates), 0.70, settings.retrieval_noise_sd, rng)
-        log_error = (
-            day_effect[row.collection_day]
-            + stream_effect[row.stream_id]
-            + settings.shared_day_noise_weight * shared_day_noise[row.collection_day]
+        retrieval = (
+            settings.shared_day_noise_weight * shared_day_noise[row.collection_day]
             + (1.0 - settings.shared_day_noise_weight) * idiosyncratic
         )
+        if row.pull_id in cache_members:
+            w = settings.cache_cluster_weight
+            retrieval = w * cache_noise + (1.0 - w) * retrieval
+        log_error = day_effect[row.collection_day] + stream_effect[row.stream_id] + retrieval
         pull_latent[row.pull_id] = latent * np.exp(log_error)
 
     # Copy a fraction of entire latent realizations to emulate exact cache/version
