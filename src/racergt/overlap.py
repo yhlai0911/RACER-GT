@@ -323,9 +323,18 @@ class OverlapGraphCalibrator:
         ).clip(lower=self.config.edge_variance_floor)
 
         rows: list[dict] = []
+        # Zeros survive only when every chunk covering a date reports zero. Averaging a
+        # zero against a positive chunk yields a positive value, so a date that was
+        # partly zero in the raw responses leaves the series positive. That is a
+        # property of the aggregation rule, not an imputation decision, but it changes
+        # what detection reliability is measured on, so it is counted and reported.
+        zero_chunk_dates = 0
+        zero_masked_dates = 0
         for historical_date, group in calibrated.groupby("historical_date", sort=True):
             values = group["calibrated_value"].to_numpy(dtype=float)
             variances = group["observation_log_variance"].to_numpy(dtype=float)
+            raw_values = group["value"].to_numpy(dtype=float)
+            had_zero_chunk = bool(np.any(raw_values == 0.0))
             finite = np.isfinite(values) & np.isfinite(variances)
             values = values[finite]
             variances = variances[finite]
@@ -359,6 +368,10 @@ class OverlapGraphCalibrator:
                 )
                 se = float(np.sqrt(max(formal_var + disagreement / max(values.size, 1), 0.0)))
                 n_chunks = int(values.size)
+            if had_zero_chunk:
+                zero_chunk_dates += 1
+                if np.isfinite(value) and value > 0:
+                    zero_masked_dates += 1
             rows.append(
                 {
                     "series_id": series_id,
@@ -367,6 +380,7 @@ class OverlapGraphCalibrator:
                     "value": value,
                     "calibration_se": se,
                     "n_contributing_chunks": n_chunks,
+                    "had_zero_chunk": had_zero_chunk,
                 }
             )
         full = pd.DataFrame(rows)
@@ -400,6 +414,11 @@ class OverlapGraphCalibrator:
                 "n_historical_dates": int(full["historical_date"].nunique()),
                 "mean_contributing_chunks": float(full["n_contributing_chunks"].mean()),
                 "zero_share_raw": float((frame["value"] == 0).mean()),
+                "n_dates_with_zero_chunk": zero_chunk_dates,
+                "n_dates_zero_masked_by_aggregation": zero_masked_dates,
+                "zero_masked_share": (
+                    zero_masked_dates / zero_chunk_dates if zero_chunk_dates else 0.0
+                ),
             }
         )
         return CalibrationResult(
