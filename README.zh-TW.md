@@ -243,7 +243,9 @@ RACER-GT 不宣稱能從 proprietary GT 系統無條件證明「真實搜尋量�
 | RACER-GT vs simple mean（皆已 benchmark） | −0.0168 | 0.116 | 7/20 |
 | benchmark 的貢獻（估計量固定） | +0.2194 | 3.1e-12 | 20/20 |
 
-三項結論，兩項有利、一項不利。跨 pull 聚合相對單一 pull 降低 **49.1%** RMSE（20 次全勝），相對中位數降低 10.3%；temporal benchmarking 另貢獻約 0.22，且對 RACER-GT 與 simple mean 的效果幾乎相同。但**共變異數調整加權相對簡單平均沒有可偵測的優勢**（p = 0.15）。此處據實報告該負面結果：本 DGP 的跨 pull 依賴高度同質，而 GLS 相對等權平均的優勢需要依賴強度在 pulls 之間不同才會顯現。這不是跨所有 DGP 的普遍保證；`examples/run_monte_carlo.py` 可重現全部數字，`scripts/make_figures.py` 由同一份 CSV 重繪圖表。
+三項結論，兩項有利、一項不利。跨 pull 聚合相對單一 pull 降低 **49.1%** RMSE（20 次全勝），相對中位數降低 10.3%；temporal benchmarking 另貢獻約 0.22，且對 RACER-GT 與 simple mean 的效果幾乎相同。但**共變異數調整加權相對簡單平均沒有可偵測的優勢**（p = 0.15）。
+
+對此最自然的解釋是依賴結構過於同質，GLS 無可利用之處。`examples/run_dependence_experiment.py` 直接檢驗了它：讓一部分 pull 額外共享一條跨設計因子的 cache 噪音。**解釋不成立**——四個情境中 GLS 無一顯著勝出，其中兩個顯著較差。約束不是原因（無約束解逐位相同），機制也運作正確（權重與殘差相關之相關係數 −0.562），剩下的解釋是以 9 個 pull 估計 Σ 所引入的誤差超過其效率增益。理論不受影響（Σ 已知時 GLS 仍為 BLUE），但在本文建議的設計規模下，simple mean 是同樣合理的主結果選擇。診斷價值則不變：spectral effective pull 數由 4.93 降至 2.95，正確反映「9 個 pull 現在只值約 3 個」。這不是跨所有 DGP 的普遍保證；`examples/run_monte_carlo.py` 可重現全部數字，`scripts/make_figures.py` 由同一份 CSV 重繪圖表。
 
 ## Stata interoperability
 
