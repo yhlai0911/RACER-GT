@@ -57,12 +57,18 @@ replications, and a further $10.3\%$ below the cross-pull median's $4.1710$.
 Temporal benchmarking contributes about $0.22$ more, holding the estimator fixed
 ($p\approx3\times10^{-12}$). Covariance-adjusted weighting, however, shows no
 detectable advantage over the simple cross-pull mean of $3.7253$ ($-0.0167$,
-$p=0.152$). We report that negative result rather than the favourable
-comparison, and explain it: dependence across pulls is highly homogeneous under
-this data-generating process, whereas the theoretical advantage of GLS over
-equal weights requires dependence strength to differ across pulls. None of these
-figures is a universal optimality guarantee across keywords, regions, or GT
-versions.
+$p=0.152$). The natural explanation is that dependence is too homogeneous for
+GLS to exploit, and we test it directly in a four-scenario experiment that puts
+a subset of pulls behind a shared cache disturbance cutting across the design
+facets. The explanation \textbf{fails}: GLS wins no heterogeneous scenario
+significantly and is significantly worse in two. Diagnostics show the
+constraints are not responsible (the unrestricted solution is identical to the
+digit) and that the mechanism works as intended (weights correlate $-0.562$ with
+shared residual dependence), leaving the error in estimating $\Sig$ from nine
+pulls as what exceeds the efficiency it buys. The theory is untouched --- GLS is
+still BLUE with $\Sig$ known --- but the practical recommendation is not. None of
+these figures is a universal optimality guarantee across keywords, regions, or
+GT versions.
 
 \medskip
 \noindent\textbf{Keywords:} Google Trends; investor attention; measurement
@@ -904,23 +910,91 @@ $0.22$ on its own, and contributes it almost identically to \RACER{} and to the
 simple mean ($0.2194$ versus $0.2195$): the gain belongs to the benchmark, not
 to the daily estimator it is paired with.
 
-\begin{remark}[Why the covariance adjustment is retained]
-The second conclusion is a negative result, and it bounds the claim rather than
-refuting the method. Dependence in this DGP is deliberately homogeneous: every
-pull shares its collection-day noise with fixed weight $0.5$, so the residual
-covariance matrix is close to equicorrelated, and the minimum-variance weights
-of an equicorrelated matrix are equal weights. The advantage of GLS over equal
-weighting requires dependence strength to \emph{differ} across pulls, as it
-would when some pulls are served from one cache and others are not. Detecting
-that requires a factorial simulation varying dependence heterogeneity, which
-this version does not provide.
+\begin{remark}[A testable prediction]\label{rem:prediction}
+The second conclusion is a negative result, and its most natural explanation is
+that dependence in this DGP is homogeneous: every pull shares its collection-day
+noise with fixed weight $0.5$, so the residual covariance is close to
+equicorrelated, the minimum-variance weights of an equicorrelated matrix are
+equal weights, and GLS has nothing to exploit while still paying for estimating
+$\Sig$.
 
-The simple mean also cannot produce what \RACER{} reports alongside its series:
-spectral and Kish effective pull counts, the near-duplicate dependence
-structure, per-day conditional standard errors, and measurement uncertainty in a
-form the downstream EIV correction can consume. Under this DGP those diagnostics
-do not translate into lower RMSE, but they are what answers the question of
-whether a batch is usable at all, which RMSE cannot answer.
+If that explanation holds, GLS should win once dependence strength \emph{differs}
+across pulls --- when some pulls are served from one cache and others are not.
+That is a testable prediction, and \cref{sec:depexp} tests it directly.
+\end{remark}
+
+\subsection{A direct test of dependence heterogeneity}\label{sec:depexp}
+
+\texttt{examples/run\_dependence\_experiment.py} places a subset of pulls behind
+one shared cache disturbance. Membership cuts across collection days and streams,
+so the extra dependence \emph{cannot} be absorbed by the design facets and is
+visible only in the residual covariance --- which is what the GLS weights exist
+for. At \texttt{cache\_cluster\_fraction} $=0$ the simulated data are byte-identical
+to those behind \cref{tab:mc}, so the two sections are directly comparable.
+
+\begin{table}[H]
+\centering
+\small
+\caption{Four dependence scenarios, 20 replications each. Advantage is simple
+mean minus GLS in RMSE, so positive favours GLS.}
+\label{tab:depexp}
+\begin{tabular}{lrrrrrrl}
+\toprule
+Scenario & GLS & Simple mean & Median & Advantage & MCSE & $p$ & GLS wins\\
+\midrule
+Homogeneous (baseline) & 3.7421 & 3.7253 & 4.1710 & $-0.0167$ & 0.0112 & $0.152$ & 7/20\\
+1/3 of pulls, moderate & 3.7658 & 3.6801 & 4.1133 & $-0.0857$ & 0.0155 & $<0.0001$ & 2/20\\
+1/3 of pulls, strong & 4.1684 & 4.1980 & 4.6486 & $+0.0296$ & 0.0439 & $0.508$ & 10/20\\
+1/2 of pulls, strong & 5.1633 & 4.8802 & 5.5593 & $-0.2831$ & 0.0591 & $0.0001$ & 2/20\\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\textbf{The prediction fails.} GLS wins no scenario significantly. The closest
+case (one third of pulls, strong dependence) is $+0.0296$ with $p=0.51$ and
+exactly 10 wins out of 20, which is a tie; in two scenarios GLS is
+\emph{significantly worse}. Adding heterogeneity does not reverse the ranking.
+
+Two diagnostics rule out the obvious misreadings of that result.
+
+First, \textbf{the constraints are not the cause}. Relaxing them under the
+strong one-third scenario (10 replications), the constrained default, the
+uncapped variant, and the fully unrestricted solution all attain a mean RMSE of
+$4.1752$ --- identical to the digit, because the unrestricted solution already
+lies inside the feasible set. An empirical covariance gives $4.1785$ and a
+diagonal one $4.2345$, against $4.2415$ for the simple mean over the same seeds.
+The unrestricted estimator, which is BLUE in theory, does not win either.
+
+Second, \textbf{the mechanism works}. The correlation between a pull's mean
+residual correlation and the weight it receives is $-0.562$, negative in all ten
+replications: GLS does find the pulls that share dependence and does move weight
+away from them. Weight dispersion in \cref{tab:depexp} rises monotonically with
+heterogeneity ($0.0220\to0.0409$) and the spectral effective pull count falls
+monotonically ($4.93\to2.95$); both correctly register the added dependence.
+
+What remains is \textbf{estimation error}. $\Sig$ must be estimated from 9 pulls
+over 366 historical dates, and the perturbation that its error induces in the
+weights exceeds the efficiency that exploiting the true dependence structure can
+buy. This matches a long-standing finding in the portfolio literature, where
+sample-covariance minimum-variance portfolios fail to beat equal weighting in
+small samples; Ledoit--Wolf shrinkage \citep{LedoitWolf2004} was proposed to
+mitigate exactly this, and is already the default here.
+
+\begin{remark}[What the negative result changes, and what it does not]
+It does not change the theory. With $\Sig$ \emph{known}, the GLS weights remain
+minimum-variance among linear unbiased estimators (\cref{prop:blue}); that
+derivation depends on no simulation. It changes the practical recommendation: at
+the design sizes this paper recommends (21--42 pulls, a single year), no
+detectable gain in point accuracy should be expected from the covariance
+adjustment, and a simple mean is an equally defensible primary choice.
+
+It also does not change the \emph{diagnostic} value of the adjustment. The
+spectral effective pull count fell from 4.93 to 2.95, correctly telling the
+researcher that nine pulls are now worth about three. A simple mean cannot supply
+that judgment, nor the near-duplicate dependence structure, the per-day
+conditional standard errors, or measurement uncertainty in a form the downstream
+EIV correction can consume. RMSE cannot answer whether a batch is usable at all,
+and that is what this framework is mainly for.
 \end{remark}
 
 \begin{remark}[Reading the bias column]
