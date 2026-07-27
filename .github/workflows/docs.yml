@@ -1,9 +1,23 @@
 name: docs
 
 on:
+  # Only the inputs to the PDF build. A code-only push cannot change a PDF, so
+  # running a full TeX Live install for it is pure noise. docs/pdf is
+  # deliberately absent: those are the outputs, and committing them is exactly
+  # the case that should not re-trigger a rebuild.
   push:
     branches: [main]
+    paths:
+      - 'docs/latex/**'
+      - 'scripts/build_docs.py'
+      - '.github/workflows/docs.yml'
   pull_request:
+    paths:
+      - 'docs/latex/**'
+      - 'scripts/build_docs.py'
+      - '.github/workflows/docs.yml'
+  # Always available manually, so the PDFs can be rebuilt on demand without
+  # inventing a commit.
   workflow_dispatch:
 
 permissions:
