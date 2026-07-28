@@ -103,6 +103,15 @@ facts:
       innovation regression coefficient by 5 percent. Level regressions need 5.9x.
     source: "ticket 21, attenuation 1/(1+r^2) against the real-series scale"
 
+  - id: epu_months_with_material_revision
+    track_occurrences: false
+    value: "416"
+    meaning: >-
+      Months of overlap between two vintages of a news-count uncertainty index,
+      of which exactly one differs by more than 1e-6 in relative terms. Published
+      history is stable; what changed is which series the file presents first.
+    source: "examples/compare_epu_vintages.py, current vs 2019-12-29 archive"
+
   - id: benchmark_gain_is_not_ours
     value: "0.2194"
     meaning: >-
@@ -151,6 +160,23 @@ retracted:
       - "docs/canonical-facts.yaml"
       - "review/tickets/12-audit-consensus-module.md"
       - "review/tickets/18-residual-centring-flattens-sigma.md"
+
+  - id: news_index_retrospective_change_likely
+    superseded_by: "measured 2026-07-28: published history is stable"
+    reason: >-
+      Ticket 27 marked retrospective change for news-count uncertainty indices as
+      likely, by analogy with the Trends normalizer. Comparing two vintages found
+      one month above 1e-6 across 416, the rest below the archived file's
+      single-precision floor. The analogy held on two criteria and failed on the
+      one it was invoked for.
+    patterns:
+      - "很可能）"
+      - "marking retrospective change as \"likely\""
+    allowed_in:
+      - "docs/canonical-facts.yaml"
+      - "review/tickets/27-platform-mediated-measurement-scope.md"
+      - "review/tickets/28-epu-retrospective-change-experiment.md"
+      - "examples/compare_epu_vintages.py"
 
   - id: gls_never_beats_simple_mean
     superseded_by: "ticket 19: it wins 20 of 20 once pull variances differ"
