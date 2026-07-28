@@ -155,6 +155,7 @@ audit_raw_batch ──(可 raise)──▶ coerce_raw_chunks
 
 ## 修改後的維護動作
 
+- **事實的單一來源是 `docs/canonical-facts.yaml`**。專案反覆引用的數值（捨入下限、模擬器高估倍數、latent 尺度…）與**已被推翻的宣稱**都登記在那裡。改動任何這類數值時**先改該檔**，再跑 `make check-facts` 找出所有需要同步的位置。已推翻的宣稱另外登記其文字特徵：任何出現在 `allowed_in`（記載更正本身的檔案）之外的地方都會讓檢查失敗並回傳非零。這個機制存在的原因是 2026-07-28 一次更正在程式與兩版論文都改了，卻在 SPEC、票與中文 README 留下四份未更新的副本，而沒有任何測試變紅。
 - `SHA256SUMS_PROJECT.txt` 由 `make checksums` 從 `git ls-files` 產生，清單與 repo 不會漂移。改動任何被追蹤的檔案後都要重跑。
 - 版本號的單一來源有兩處必須同步：`pyproject.toml` 與 `src/racergt/__init__.py`；文件的版本字串來自 `docs/latex/_meta.tex`（改一行即可全體生效）。`release.yml` 會在 git tag 與 `racergt.__version__` 不一致時**拒絕發布**。
 - `dist/` 內的 wheel 與 sdist 是建置產物；`make build` 前會先 `make clean`。

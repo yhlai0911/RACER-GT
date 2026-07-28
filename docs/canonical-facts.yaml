@@ -1,0 +1,166 @@
+# Single source of truth for the numbers and claims this project repeats.
+#
+# Two problems this file solves, and they are different.
+#
+# Numbers get copied. "The simulator overstates chunk noise by 4.5 times" appears
+# in seven files; changing it means finding all seven. Each entry below records the
+# value, what produced it, and where it is allowed to appear, so `make check-facts`
+# can list every occurrence rather than relying on memory.
+#
+# Retracted claims are harder, because there is no number to grep for and nothing
+# fails when a stale copy survives. On 2026-07-28 the explanation of an indefinite
+# corrected covariance was corrected in the code and both manuscripts, and a stale
+# copy stayed in the module spec for a full commit. Registering the wording makes
+# that detectable: any occurrence outside the files that document the correction
+# itself is an error.
+#
+# Changing a fact means editing this file first, then running the check to find
+# everything that needs to follow.
+
+facts:
+  - id: rounding_floor
+    value: "0.0178"
+    meaning: >-
+      Integer-rounding floor on log-scale overlap dispersion. Pure-rounding
+      simulation reproducing the Trends normalization rule.
+    source: "1.4.0 real-data validation (bitcoin, US, daily, 2024, 8 chunks)"
+
+  - id: within_day_dispersion
+    value: "0.0188"
+    meaning: >-
+      Median observed dispersion across 21 usable within-day overlaps. Rounding
+      accounts for about 94 percent of it.
+    source: "1.4.0 real-data validation"
+
+  - id: fitted_chunk_noise
+    value: "0.0066"
+    meaning: >-
+      Value of SimulationSettings.chunk_noise_sd that reproduces the observed
+      dispersion, against a default of 0.03.
+    source: "1.4.0 parametric bootstrap"
+
+  - id: simulator_noise_overstatement
+    track_occurrences: false
+    value: "4.5"
+    meaning: >-
+      Factor by which the simulator's default chunk noise exceeds the fitted
+      value. The one simulator parameter real data can check, and it was wrong.
+    source: "1.4.0 parametric bootstrap"
+
+  - id: daily_window_limit
+    track_occurrences: false
+    value: "269"
+    meaning: >-
+      Maximum span in days for which the Trends web interface returns daily
+      granularity. Above it the response is weekly. Not 270.
+    source: "Trends behaviour; ticket 03 audits every mention"
+
+  - id: se_unit_bug_factor
+    track_occurrences: false
+    value: "36"
+    meaning: >-
+      Factor by which the pre-1.4.0 calibration standard error understated dates
+      covered by a single chunk, from adding a log-scale variance to a level-scale
+      term.
+    source: "1.4.0, fixed; pinned by tests/test_calibration_variance.py"
+
+  - id: scale_groups_real_data
+    track_occurrences: false
+    value: "4"
+    meaning: >-
+      Distinct normalization groups formed by the 8 real chunks. Chunks sharing a
+      window maximum return identical values wherever they overlap, so the
+      effective count for rounding is this, not 8.
+    source: "1.4.0 real-data validation; see prop:rounding"
+
+  - id: latent_log_sd
+    value: "0.4556"
+    meaning: "Log-scale standard deviation of the reconstructed real series, level."
+    source: "real_data_validation/graph_series.csv, 366 days"
+
+  - id: latent_diff_log_sd
+    value: "0.2194"
+    meaning: >-
+      Log-scale standard deviation of the first difference. Differencing halves
+      the signal while multiplying measurement noise by root two, which is why
+      innovation regressions are the sensitive case.
+    source: "real_data_validation/graph_series.csv, 366 days"
+
+  - id: gls_advantage_sd_ratio_threshold
+    track_occurrences: false
+    value: "1.5"
+    meaning: >-
+      Ratio of retrieval-noise standard deviations across pulls at which
+      covariance-adjusted weighting becomes significantly better than a simple
+      mean (p = 0.00007, 16 of 20 replications).
+    source: "examples/run_variance_heterogeneity.py, 20 replications"
+
+  - id: eiv_threshold_rounding_multiple
+    track_occurrences: false
+    value: "2.0"
+    meaning: >-
+      Multiple of the rounding floor at which cross-day noise attenuates an
+      innovation regression coefficient by 5 percent. Level regressions need 5.9x.
+    source: "ticket 21, attenuation 1/(1+r^2) against the real-series scale"
+
+  - id: benchmark_gain_is_not_ours
+    value: "0.2194"
+    meaning: >-
+      RMSE reduction from temporal benchmarking. The simple mean gains 0.2195, so
+      the benefit belongs to using a low-frequency benchmark, not to RACER-GT.
+    source: "Monte Carlo, 20 replications, p about 3e-12"
+
+retracted:
+  - id: more_accurate
+    superseded_by: "Positioning fixed 2026-07-28: usable, not more accurate"
+    reason: >-
+      No version ever had evidence. Against a simple cross-pull mean the paired
+      test gives p = 0.15 with 7 wins in 20.
+    patterns:
+      - "更準確的重建"
+      - "more accurate reconstruction"
+    allowed_in:
+      - "docs/canonical-facts.yaml"
+
+  - id: indefinite_means_series_cannot_support_factor
+    superseded_by: "prop:factor part (iii)"
+    reason: >-
+      Under a correct model with a correct Omega the expectation of S - Omega_bar
+      is Lambda Lambda' + Psi, which is positive semidefinite, so the condition
+      cannot arise from the factor structure. It indicates Omega is too large
+      relative to the observed covariance.
+    patterns:
+      - "撐不起一個因素"
+      - "撐不起因素"
+      - "does not support a factor at"
+    allowed_in:
+      - "docs/canonical-facts.yaml"
+      - "docs/latex/math-appendix.en.tex"
+      - "docs/latex/math-appendix.zh.tex"
+      - "review/tickets/25-every-step-needs-a-proposition.md"
+
+  - id: weight_cap_guards_nothing
+    superseded_by: "ticket 18: iterating Sigma diverges, so the cap is necessary"
+    reason: >-
+      The cap is slack under the current Sigma, but weight concentrating on a
+      single pull is exactly what appears once Sigma can discriminate. Maximum
+      weight reaches one by the fourth iteration.
+    patterns:
+      - "不會發生的失效模式"
+    allowed_in:
+      - "docs/canonical-facts.yaml"
+      - "review/tickets/12-audit-consensus-module.md"
+      - "review/tickets/18-residual-centring-flattens-sigma.md"
+
+  - id: gls_never_beats_simple_mean
+    superseded_by: "ticket 19: it wins 20 of 20 once pull variances differ"
+    reason: >-
+      The null result holds only when the design makes every pull homogeneous in
+      variance, which the default simulator does. The claim needs its condition.
+    patterns:
+      - "GLS 加權沒有用"
+      - "covariance adjustment never helps"
+    allowed_in:
+      - "docs/canonical-facts.yaml"
+      - "review/tickets/12-audit-consensus-module.md"
+      - "review/tickets/18-residual-centring-flattens-sigma.md"
