@@ -483,6 +483,49 @@ the design can support, which is the direction that flatters any conclusion draw
 from it.
 \end{remark}
 
+\begin{proposition}[What the local multiplier estimates]\label{prop:localscale}
+Suppose the residual covariance varies in scale but not in shape,
+$\Sig_t=c_t^2\Sig$ for a positive sequence $c_t$. Then
+\begin{enumerate}
+\item $\sqrt{\wvec^{\top}\Sig_t\wvec}=c_t\sqrt{\wvec^{\top}\Sig\wvec}
+=c_t\,\text{base\_se}$, so a single global standard error times a per-day scale is
+the correct form;
+\item $M_t/\bar{M}$ is consistent for $c_t$, because the consistency constant
+relating the median absolute deviation to a standard deviation appears in both
+numerator and denominator and cancels.
+\end{enumerate}
+\end{proposition}
+
+\begin{proof}
+(i) is immediate from bilinearity. (ii) follows since $M_t$ estimates
+$\kappa c_t \sigma$ for the same $\kappa$ at every $t$ under the shape-invariance
+assumption, and $\bar{M}$ estimates $\kappa\sigma$.
+\end{proof}
+
+\begin{remark}[Finite-sample behaviour and what the clip is for]
+\Cref{prop:localscale} is asymptotic in the number of pulls, and $M_t$ is computed
+from $m$ of them. Simulating $c_t\equiv1$, so that every departure from one is
+estimation noise, the multiplier has standard deviation $0.61$ at $m=3$, $0.38$ at
+$m=9$ and $0.21$ at $m=30$. The clip at $[0.25,4]$ binds on $4.75\%$ of dates at
+$m=3$, $0.40\%$ at $m=9$ and not at all at $m=30$. The bounds themselves have no
+statistical derivation; they are a numerical guard, and their cost is small at the
+design sizes this framework recommends.
+\end{remark}
+
+\begin{remark}[Power, and where it goes]\label{rem:localpower}
+The multiplier does detect real variation. With $c_t=3$ on a fifth of dates, the
+area under the ROC curve for separating those dates is $0.88$ at $m=3$, $0.98$ at
+$m=9$ and $1.00$ at $m=30$.
+
+That is under the proposition's assumption, where every pull is noisier together.
+When instead only some pulls are noisy on a date --- a change in the shape of
+$\Sig_t$, not its scale --- the median absorbs it, and power falls monotonically
+with the share of pulls affected: at $m=9$ the area is $0.98$ when all pulls are
+affected, $0.78$ at half, and $0.63$ at a fifth. The robustness that makes $M_t$
+resistant to outliers is what makes it blind here, and the direction is
+unfavourable: an undetected increase leaves $\mathrm{se}_t$ too small.
+\end{remark}
+
 \begin{remark}[Consequence for the error-corrected estimators]
 The moment correction of \cref{app:moment} and the error-corrected factor model
 both treat $\mathrm{se}_t^2$ as a known $\Omega$. An $\Omega$ that is uniformly
