@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 
 import numpy as np
 import pandas as pd
@@ -157,14 +157,21 @@ def run_monte_carlo(
     config: RacerGTConfig,
     replications: int = 20,
     first_seed: int = 1000,
+    settings: SimulationSettings | None = None,
 ) -> ValidationResult:
+    """Repeat the pipeline over independent simulated batches and score it on truth.
+
+    ``settings`` varies the data-generating process while holding the estimator and
+    the seeds fixed, which is how a scenario such as variance heterogeneity is
+    compared against the homogeneous default. Its ``random_seed`` is overwritten per
+    replication; leaving it None reproduces the original behaviour exactly.
+    """
+
+    base = settings if settings is not None else SimulationSettings(exact_duplicate_fraction=0.10)
     records = []
     for replication in range(replications):
         seed = first_seed + replication
-        simulation = simulate_racergt_data(
-            config,
-            SimulationSettings(random_seed=seed, exact_duplicate_fraction=0.10),
-        )
+        simulation = simulate_racergt_data(config, replace(base, random_seed=seed))
         result = RacerGTPipeline(config).fit(simulation.raw_chunks, simulation.benchmark)
         metrics = evaluate_pipeline_against_truth(
             result, simulation.truth, benchmark=simulation.benchmark, config=config

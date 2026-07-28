@@ -39,6 +39,18 @@ class SimulationSettings:
     # cache_cluster_fraction = 0 reproduces the homogeneous behaviour exactly.
     cache_cluster_fraction: float = 0.0
     cache_cluster_weight: float = 0.0
+    # Variance heterogeneity. cache_cluster_* above makes pulls differ in how they
+    # covary; this makes them differ in how noisy they are, which is the other thing
+    # minimum-variance weights exist to exploit and the one the default design leaves
+    # out. The value is the ratio of the largest to the smallest retrieval-noise
+    # standard deviation, spread geometrically with geometric mean one, so the
+    # overall noise level is redistributed rather than raised. Assignment is shuffled
+    # across the schedule for the same reason cache membership is: aligned with a
+    # collection day or a stream it would be a facet effect the G-study already
+    # reports, not something only the residual covariance can see.
+    # retrieval_noise_ladder = 1.0 reproduces the homogeneous behaviour exactly, and
+    # consumes no random numbers, so existing results are bit-comparable.
+    retrieval_noise_ladder: float = 1.0
 
 
 def _ar1_noise(n: int, phi: float, sd: float, rng: np.random.Generator) -> np.ndarray:
@@ -149,6 +161,19 @@ def simulate_racergt_data(
             cache_members = set(rng.choice(all_ids, size=n_cache, replace=False).tolist())
             cache_noise = _ar1_noise(len(dates), 0.85, settings.retrieval_noise_sd, rng)
 
+    # Per-pull noise scale. Exponents are symmetric about zero so their product is
+    # one, leaving the geometric mean of the scales at one: the noise budget moves
+    # between pulls instead of growing. Nothing is drawn when the ladder is 1.0, so
+    # the default consumes the random stream identically to before this option.
+    noise_scale: dict[str, float] = {}
+    if settings.retrieval_noise_ladder != 1.0:
+        exponents = np.linspace(-0.5, 0.5, len(schedule))
+        rng.shuffle(exponents)
+        noise_scale = {
+            pull_id: float(settings.retrieval_noise_ladder**exponent)
+            for pull_id, exponent in zip(schedule["pull_id"], exponents, strict=True)
+        }
+
     pull_latent: dict[str, np.ndarray] = {}
     for row in schedule.itertuples(index=False):
         idiosyncratic = _ar1_noise(len(dates), 0.70, settings.retrieval_noise_sd, rng)
@@ -156,6 +181,7 @@ def simulate_racergt_data(
             settings.shared_day_noise_weight * shared_day_noise[row.collection_day]
             + (1.0 - settings.shared_day_noise_weight) * idiosyncratic
         )
+        retrieval = retrieval * noise_scale.get(row.pull_id, 1.0)
         if row.pull_id in cache_members:
             w = settings.cache_cluster_weight
             retrieval = w * cache_noise + (1.0 - w) * retrieval
