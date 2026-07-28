@@ -335,10 +335,17 @@ def test_broken_stick_comparator_agrees_on_a_clean_two_factor_panel():
         assert result.diagnostics["n_factors_broken_stick"] == 2, error_sd
 
 
-def test_error_dominated_panel_refuses_to_return_a_factor():
-    """At some error level the series set stops supporting a factor. Say so, loudly."""
+def test_overstated_omega_relative_to_the_data_is_refused():
+    """An indefinite corrected covariance means Omega is too large, and says so.
 
-    with pytest.raises(IndefiniteCovarianceError, match="does not support a factor"):
+    The earlier wording claimed it meant the series set could not support a factor.
+    That reading is wrong: under a correct model with a correct Omega the expectation
+    of S - Omega_bar is Lambda Lambda' + Psi, which is positive semidefinite, so the
+    condition cannot arise from the factor structure alone. Here the supplied error
+    exceeds what the panel's covariance can absorb.
+    """
+
+    with pytest.raises(IndefiniteCovarianceError, match="Omega is too large"):
         fit_error_corrected_factors(_two_factor_panel(error_sd=1.20))
 
 
@@ -409,3 +416,55 @@ def test_result_saves_every_artefact(tmp_path):
     }
     for path in paths.values():
         assert path.exists() and path.stat().st_size > 0
+
+
+def test_attenuation_matches_the_closed_form():
+    """Proposition on attenuation, checked against the analytic ratio.
+
+    Under one factor with homogeneous loadings and errors, standardized so that
+    a + psi + omega = 1, both the uncorrected and corrected matrices share the
+    leading eigenvector, so the correlation-scale loading ratio is
+
+        sqrt( B (1 - omega) / (B - omega) ),   B = 1 + (K - 1) a.
+
+    Predicted before simulating; it holds to a fraction of a percent across
+    communalities, error shares and K, and returns exactly one at omega = 0.
+    """
+
+    def closed_form(communality: float, n_series: int, error_share: float) -> float:
+        b = 1.0 + (n_series - 1) * communality
+        return float(np.sqrt(b * (1.0 - error_share) / (b - error_share)))
+
+    def homogeneous_panel(communality: float, error_share: float, n_series: int):
+        rng = np.random.default_rng(3)
+        n_obs = 120_000
+        unique = 1.0 - communality - error_share
+        factor = rng.normal(size=n_obs)
+        dates = pd.date_range("2020-01-01", periods=n_obs, freq="D")
+        frames = []
+        for index in range(n_series):
+            series = (
+                np.sqrt(communality) * factor
+                + rng.normal(scale=np.sqrt(unique), size=n_obs)
+                + rng.normal(scale=np.sqrt(error_share), size=n_obs)
+            )
+            frames.append(
+                pd.DataFrame(
+                    {
+                        "series_id": f"S{index}",
+                        "historical_date": dates,
+                        "value": 100.0 + 10.0 * series,
+                        "standard_error": 10.0 * np.sqrt(error_share),
+                    }
+                )
+            )
+        return pd.concat(frames, ignore_index=True)
+
+    for communality, error_share, n_series in ((0.5, 0.0, 8), (0.5, 0.3, 8), (0.3, 0.2, 4)):
+        result = fit_error_corrected_factors(
+            homogeneous_panel(communality, error_share, n_series), n_factors=1
+        )
+        observed = float(np.mean(list(result.diagnostics["attenuation_ratio"].values())))
+        assert observed == pytest.approx(
+            closed_form(communality, n_series, error_share), rel=0.01
+        )

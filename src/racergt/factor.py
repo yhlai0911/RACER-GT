@@ -12,10 +12,11 @@ error variance can be subtracted before the eigendecomposition:
     E[S] = Lambda Lambda' + Psi + Omega_bar,   S_tilde = S - Omega_bar
 
 Two things this module deliberately refuses to do. It does not project an indefinite
-S_tilde back onto the PSD cone --- losing positive semidefiniteness means measurement
-error accounts for most of the covariance, which is a finding about the keyword set,
-not a numerical inconvenience. And it does not pretend the supplied Omega is a true
-daily variance: see the omega_* diagnostics.
+S_tilde back onto the PSD cone: under a correct model with a correct Omega the
+expectation is Lambda Lambda' + Psi, which is positive semidefinite, so an indefinite
+result says Omega is too large relative to the observed covariance rather than being a
+numerical inconvenience to smooth over. And it does not pretend the supplied Omega is
+a true daily variance: see the omega_* diagnostics.
 
 The first component is not automatically the construct. GT series share large weekday
 and holiday effects, and PC1 captures whatever varies most in common, so it may well
@@ -48,9 +49,14 @@ _ZERO_TOLERANCE = 1e-12
 class IndefiniteCovarianceError(ValueError):
     """Raised when S - Omega_bar is not positive semidefinite.
 
-    This is a result, not a failure mode to be repaired. It says the supplied
-    measurement error accounts for more of the observed covariance than the common
-    factors do, so the series set does not support a factor at this error level.
+    This is a result, not a failure mode to be repaired, but it says something
+    narrower than it first appears. Under a correct model with a correct Omega the
+    expectation of the corrected covariance is Lambda Lambda' + Psi, which is
+    positive semidefinite, so this cannot happen. Losing semidefiniteness is
+    therefore evidence that Omega is too large relative to the observed covariance:
+    an overstated measurement error, a misspecified model, or finite-sample
+    variation in S. It is not by itself evidence that the series set cannot support
+    a factor.
     """
 
 
@@ -462,7 +468,9 @@ def fit_error_corrected_factors(
         raise IndefiniteCovarianceError(
             f"Corrected covariance has minimum eigenvalue {min_eigenvalue:.6g}; "
             f"measurement error explains {measurement_error_share:.1%} of total variance. "
-            "This series set does not support a factor at the supplied error level. "
+            "Under a correct model this cannot happen, so the supplied Omega is too "
+            "large relative to the observed covariance -- overstated measurement "
+            "error, a misspecified model, or finite-sample variation in S. "
             "Pass allow_indefinite=True to inspect the solution anyway."
         )
 

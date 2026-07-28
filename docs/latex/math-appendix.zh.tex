@@ -367,6 +367,37 @@ $\E[\bm{W}^\top M\bm{Y}]=\beta\,\E[\bm{X}^\top M\bm{X}]$，
 $W_t(\lambda,b)=W_t+\sqrt{\lambda}\,\tilde{u}_{tb}$（$\tilde{u}_{tb}$ 依 $\Omega_u$ 抽取），對 $b=1,\dots,B$ 估 $\hat\beta(\lambda,b)$ 後對 $b$ 平均。以參數曲線 $g(\lambda;\bm{\theta})$ 配適 $\{(\lambda,\bar{\beta}(\lambda))\}$，回報 $g(-1;\hat{\bm{\theta}})$，即外推至無測量誤差的假想情形。SIMEX 與動差修正並列回報而非擇一：兩者一致是古典誤差結構足夠的證據，兩者分歧則是不足的證據。
 
 % =============================================================================
+\subsection{誤差校正因素分析}\label{app:factor-zh}
+
+觀測 $K$ 個 series 為 $\yvec_t=\Lam \fvec_t+\evec_t+\uvec_t$，其中 $\fvec_t$ 為潛在因素、$\evec_t$ 為 series 特有成分（$\Var=\Psimat$ 對角）、$\uvec_t$ 為量測誤差且 $\Var(\uvec_t)=\Om_t$ 由外部供給。估計量在特徵分解之前先扣除平均誤差共變異數：$\tilde{S}=S-\bar{\Om}$。
+
+\begin{proposition}[誤差校正共變異數與衰減]\label{prop:factor-zh}
+\begin{enumerate}
+\item 若 $\uvec_t$ 與 $\fvec_t$、$\evec_t$ 不相關，則 $\E[\tilde{S}]=\Lam\Lam^\top+\Psimat$：校正後共變異數是「若無量測誤差時該有的共變異數」的無偏估計。
+\item 取單因素、loading 與誤差同質，並標準化使 $a+\psi+\omega=1$（$a=\lambda^2$ 為 communality、$\omega$ 為量測誤差佔比）。在**相關係數尺度**上比較 loading，未校正對校正後的比值為
+\begin{equation}
+\frac{\lambda^{\mathrm{raw}}/\sqrt{S_{kk}}}{\tilde{\lambda}/\sqrt{\tilde{S}_{kk}}}
+=\sqrt{\frac{B(1-\omega)}{B-\omega}},
+\qquad B=1+(K-1)a .
+\label{eq:attenuation-zh}
+\end{equation}
+$\omega=0$ 時恰為 1；因 $B>1$，$\omega>0$ 時嚴格小於 1 且對 $\omega$ 遞減。
+\item 若模型成立且 $\bar{\Om}$ 未超過真實的平均量測共變異數，則 $\tilde{S}\succeq0$。
+\end{enumerate}
+\end{proposition}
+
+\begin{proof}
+(i) 在所述正交性下 $\E[S]=\Lam\Lam^\top+\Psimat+\bar{\Om}$，而 $\bar{\Om}$ 已被扣除。(ii) 同質下 $S=\Lam\Lam^\top+\tau I$（$\tau=\psi+\omega$）、$\tilde{S}=\Lam\Lam^\top+\psi I$，兩矩陣共用首特徵向量 $\Lam/\|\Lam\|$，僅首特徵值相異（$\|\Lam\|^2+\tau$ 對 $\|\Lam\|^2+\psi$）。代入 $\lambda_k=v_k\sqrt{\mu_1}$、各自除以自身矩陣所蘊含的標準差，並利用標準化後的 $a+\tau=1$，即得 \eqref{eq:attenuation-zh}。(iii) 由 (i)，期望值為 $\Lam\Lam^\top+\Psimat$，因 $\Psimat$ 對角非負而半正定。
+\end{proof}
+
+\begin{remark}[校正後共變異數非正定究竟代表什麼]
+(iii) 修正了先前的解讀。**失去半正定性本身並不是「該組 series 撐不起一個因素」的證據**——在模型正確且 $\bar{\Om}$ 正確時，它根本不會發生。它是 $\bar{\Om}$ **相對於觀測共變異數過大**的證據：量測誤差被高估、模型設定錯誤、或 $S$ 的有限樣本變異。因此估計量選擇**拋出例外而非修補**，並在診斷中報告最小特徵值，使違反的幅度可見。
+\end{remark}
+
+\begin{remark}[數值檢驗]
+\eqref{eq:attenuation-zh} 於模擬之前寫定，在 communality $0.3$ 至 $0.6$、誤差佔比 $0$ 至 $0.3$、$K$ 由 $4$ 至 $12$ 的組合上吻合至 $0.01\%$ 以內；$\omega=0$ 時回傳 $1.00000$。
+\end{remark}
+
 \section{數學與程式的對應}
 
 \begin{table}[H]
