@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from collections.abc import Iterable
 from dataclasses import dataclass
+from itertools import pairwise
 
 import networkx as nx
 import numpy as np
@@ -84,6 +85,41 @@ def huber_location(
     n_eff = float(np.sum(weights) ** 2 / np.sum(weights**2))
     variance = robust_scale**2 / max(n_eff, 1.0)
     return loc, robust_scale, variance
+
+
+def _spanning_path_variance(
+    nodes: list[str], edges: list[EdgeEstimate], reference: str
+) -> float:
+    """Worst-case log-scale variance a sequential stitch would incur on this design.
+
+    Because the graph WLS weights are edge precisions, the covariance of the
+    solution is the inverse of a weighted graph Laplacian, and the variance of
+    ``ell_j - ell_ref`` is exactly the effective resistance between those two
+    nodes when each edge is a conductance equal to its precision. Sequential
+    stitching is the same estimator restricted to a spanning path, whose effective
+    resistance is the plain sum of the resistances it walks and therefore grows
+    with the number of joins. Rayleigh's monotonicity law says adding an edge can
+    never raise an effective resistance, so the full graph is never worse.
+
+    Returning the path's worst-case variance next to the graph's makes the
+    difference a number the analyst can read off a design before collecting
+    anything: the ratio depends only on which windows overlap, not on how noisy
+    the retrievals turn out to be.
+    """
+
+    order = sorted(nodes)
+    conductance = {
+        frozenset((e.chunk_i, e.chunk_j)): 1.0 / e.variance for e in edges if e.variance > 0
+    }
+    resistances = {order[0]: 0.0}
+    for previous, current in pairwise(order):
+        weight = conductance.get(frozenset((previous, current)))
+        if weight is None:
+            # The chain is broken; a spanning path does not exist on this design.
+            return float("nan")
+        resistances[current] = resistances[previous] + 1.0 / weight
+    at_reference = resistances.get(reference, 0.0)
+    return max(abs(r - at_reference) for r in resistances.values())
 
 
 def _select_reference(graph: nx.Graph, config: CalibrationConfig) -> str:
@@ -274,6 +310,8 @@ class OverlapGraphCalibrator:
         group_graph.add_nodes_from(nodes)
         group_graph.add_edges_from((e.chunk_i, e.chunk_j) for e in zero_dispersion)
 
+        sequential_variance = _spanning_path_variance(nodes, edges, reference)
+
         diagnostics = {
             "connected": len(components) == 1,
             "n_components": len(components),
@@ -283,6 +321,15 @@ class OverlapGraphCalibrator:
             "n_zero_dispersion_edges": len(zero_dispersion),
             "n_informative_edges": len(edges) - len(zero_dispersion),
             "n_scale_groups": nx.number_connected_components(group_graph),
+            # Effective resistance to the reference chunk, for the graph actually
+            # solved and for the spanning path a sequential stitch would walk.
+            "max_log_scale_variance": max(variances.values()) if variances else 0.0,
+            "sequential_max_log_scale_variance": sequential_variance,
+            "calibration_variance_reduction": (
+                sequential_variance / max(variances.values())
+                if variances and max(variances.values()) > 0
+                else float("nan")
+            ),
             "reference_chunk": reference,
             "normal_rank": rank,
             "normal_condition_number": condition,
@@ -379,8 +426,16 @@ class OverlapGraphCalibrator:
             else:
                 weights = 1.0 / np.maximum(variances, self.config.edge_variance_floor)
                 value = float(np.sum(weights * values) / np.sum(weights))
-                # Delta-method component plus disagreement across overlapping chunks.
-                formal_var = float(1.0 / np.sum(weights))
+                # The weights are precisions on the log scale, so 1/sum(weights) is a
+                # variance on the log scale while the aggregate and the disagreement
+                # term are on the level scale. The delta method converts it:
+                # Var(Y) = Y^2 Var(log Y). Without the conversion the two terms are
+                # added in different units, and on a date covered by a single chunk
+                # the disagreement term vanishes and the reported error is left as a
+                # bare log-scale number -- smallest exactly where the series is
+                # thinnest. This standard error is propagated into the downstream
+                # errors-in-variables correction, so the units have to be right.
+                formal_var = float(value**2 / np.sum(weights))
                 disagreement = (
                     float(np.average((values - value) ** 2, weights=weights))
                     if values.size > 1
