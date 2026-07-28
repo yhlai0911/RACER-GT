@@ -99,6 +99,68 @@ def test_ladder_is_not_aligned_with_the_design_facets(small_config):
         assert p_value > 0.05, f"noise scale tracks {facet} (p={p_value:.4f})"
 
 
+def test_additive_noise_default_reproduces_the_multiplicative_behaviour(small_config):
+    """The control must be opt-in and cost nothing when off."""
+
+    default = _simulate(small_config, retrieval_noise_ladder=LADDER)
+    explicit = _simulate(
+        small_config, retrieval_noise_ladder=LADDER, additive_retrieval_noise=False
+    )
+    pd.testing.assert_frame_equal(default.raw_chunks, explicit.raw_chunks)
+
+
+def test_additive_noise_changes_the_series_without_changing_its_level(small_config):
+    """It is a different error scale, not a different signal."""
+
+    multiplicative = _simulate(small_config, retrieval_noise_ladder=LADDER).raw_chunks
+    additive = _simulate(
+        small_config, retrieval_noise_ladder=LADDER, additive_retrieval_noise=True
+    ).raw_chunks
+
+    assert not np.allclose(
+        multiplicative["value"].to_numpy(float), additive["value"].to_numpy(float)
+    )
+    assert additive["value"].mean() == pytest.approx(multiplicative["value"].mean(), rel=0.10)
+
+
+def test_clipping_in_the_additive_control_is_warned_about_not_silent():
+    """A clipped run is a nonlinearity the multiplicative case does not have, so it
+    is no longer the control it claims to be. Silence would let it be compared as
+    though the only difference were the error scale."""
+
+    from datetime import date
+
+    from racergt.config import QuerySpec, RacerGTConfig
+
+    config = RacerGTConfig(
+        query=QuerySpec(
+            series_id="clip",
+            keyword="k",
+            geo="US",
+            historical_start=date(2024, 1, 1),
+            historical_end=date(2024, 12, 31),
+            baseline_start=date(2024, 1, 1),
+            baseline_end=date(2024, 12, 31),
+        )
+    )
+    config.design.day_offsets = [0, 1, 7]
+    config.design.streams = ["A", "B", "C"]
+    config.chunking.window_days = 120
+    config.chunking.step_days = 30
+    config.chunking.min_overlap_days = 14
+
+    with pytest.warns(RuntimeWarning, match="no longer a purely additive control"):
+        simulate_racergt_data(
+            config,
+            SimulationSettings(
+                random_seed=1200,
+                exact_duplicate_fraction=0.10,
+                retrieval_noise_ladder=40.0,
+                additive_retrieval_noise=True,
+            ),
+        )
+
+
 def test_ladder_below_one_is_the_same_spread_as_its_reciprocal(small_config):
     """A ladder is a ratio, so 1/k and k describe the same design. Guards against
     an implementation that only widens in one direction."""

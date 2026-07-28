@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import warnings
 from dataclasses import dataclass
 
 import numpy as np
@@ -51,6 +52,15 @@ class SimulationSettings:
     # retrieval_noise_ladder = 1.0 reproduces the homogeneous behaviour exactly, and
     # consumes no random numbers, so existing results are bit-comparable.
     retrieval_noise_ladder: float = 1.0
+    # Robustness control for the ladder. Trends normalizes each window to its own
+    # maximum, so retrieval error is proportional by construction and the default
+    # model is multiplicative. That is an argument, not a measurement, and the
+    # argument happens to favour the estimator whose weights the ladder exists to
+    # test. Setting this puts the same disturbance on the level scale instead:
+    # latent * exp(x) ~= latent + latent * x, so scaling by the mean level keeps the
+    # magnitude comparable while removing the dependence of error size on level.
+    # False consumes no random numbers and reproduces the default exactly.
+    additive_retrieval_noise: bool = False
 
 
 def _ar1_noise(n: int, phi: float, sd: float, rng: np.random.Generator) -> np.ndarray:
@@ -175,6 +185,7 @@ def simulate_racergt_data(
         }
 
     pull_latent: dict[str, np.ndarray] = {}
+    n_clipped = 0
     for row in schedule.itertuples(index=False):
         idiosyncratic = _ar1_noise(len(dates), 0.70, settings.retrieval_noise_sd, rng)
         retrieval = (
@@ -186,7 +197,27 @@ def simulate_racergt_data(
             w = settings.cache_cluster_weight
             retrieval = w * cache_noise + (1.0 - w) * retrieval
         log_error = day_effect[row.collection_day] + stream_effect[row.stream_id] + retrieval
-        pull_latent[row.pull_id] = latent * np.exp(log_error)
+        if settings.additive_retrieval_noise:
+            level = latent + float(np.mean(latent)) * log_error
+            # A level-scale disturbance can cross zero where the multiplicative one
+            # cannot. Clipping is counted and warned about rather than silent: a
+            # scenario that clips is no longer the additive control it claims to be,
+            # because the clip is itself a nonlinearity in the level.
+            n_clipped += int((level < 0.0).sum())
+            pull_latent[row.pull_id] = np.maximum(level, 0.0)
+        else:
+            pull_latent[row.pull_id] = latent * np.exp(log_error)
+
+    if n_clipped:
+        warnings.warn(
+            f"additive_retrieval_noise clipped {n_clipped} negative levels at "
+            f"retrieval_noise_ladder={settings.retrieval_noise_ladder}. The clip is a "
+            "nonlinearity in the level, so this run is no longer a purely additive "
+            "control and should not be compared with the multiplicative case as "
+            "though the only difference were the error scale.",
+            RuntimeWarning,
+            stacklevel=2,
+        )
 
     # Copy a fraction of entire latent realizations to emulate exact cache/version
     # duplicates. Targets are drawn at random rather than taken from the tail of the
