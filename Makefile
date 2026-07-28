@@ -31,3 +31,6 @@ all: lint test docs build checksums
 clean:
 	rm -rf build dist .pytest_cache src/*.egg-info src/racergt.egg-info
 	find . -type d -name __pycache__ -prune -exec rm -rf {} +
+
+check-facts:
+	$(PY) scripts/check_facts.py
