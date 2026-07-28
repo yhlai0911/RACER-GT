@@ -17,9 +17,18 @@ the simulator cannot represent at all.
   censoring markers rather than zeros and are converted explicitly and counted.
 - `examples/run_real_data_calibration.py` and the analysis behind the new
   manuscript section: cycle closure over every triangle, within-overlap drift
-  tests, per-chunk residual mis-scaling, a chain-accumulation power calculation,
-  and a parametric bootstrap that recovers `chunk_noise_sd` by reproducing the
-  Trends normalization rule.
+  tests, per-chunk residual mis-scaling, an effective-resistance comparison
+  against the spanning path a sequential stitch would walk, and a parametric
+  bootstrap that recovers `chunk_noise_sd` by reproducing the Trends
+  normalization rule.
+- A proposition and proof identifying the calibration variance with an effective
+  resistance, in both manuscripts, with a design table giving the terminal scale
+  error a chunking choice implies before any collection begins.
+- `max_log_scale_variance`, `sequential_max_log_scale_variance` and
+  `calibration_variance_reduction` in `CalibrationResult.diagnostics`.
+- `tests/test_calibration_variance.py`, which pins the reported variance against
+  a Laplacian pseudo-inverse computed outside the estimator, checks Rayleigh
+  monotonicity, and fails against the pre-1.4.0 standard error.
 - `n_zero_dispersion_edges`, `n_informative_edges` and `n_scale_groups` in
   `CalibrationResult.diagnostics`. Trends divides each chunk by its own window
   maximum, so two windows containing the same peak day come back identical
@@ -42,6 +51,14 @@ the simulator cannot represent at all.
 
 ### Fixed
 
+- The inverse-variance aggregation built its formal variance term from log-scale
+  precisions and added it, unconverted, to a level-scale disagreement term. On
+  the real data the reported relative error at dates covered by a single chunk
+  came out 36 times smaller than elsewhere, so the series looked best measured at
+  its two ends, where it is thinnest. The delta method supplies the missing
+  factor. This standard error propagates into the errors-in-variables correction,
+  so it was not cosmetic. No existing test caught it;
+  `tests/test_calibration_variance.py` now fails against the unfixed code.
 - `CITATION.cff` had `cff-version: 1.3.0`, which is the project version rather
   than a Citation File Format schema version and is not a value the format
   defines, while the `version` field had been left at 1.2.0 through the 1.3.0
@@ -65,14 +82,19 @@ the simulator cannot represent at all.
   closure error is 0.0018 log points and the largest is 0.0118. One of 21
   informative overlaps drifts at p < 0.05 against 1.05 expected. No chunk is left
   detectably mis-scaled; the largest deviation is −0.032%.
-- **This design has no power against failure mode F1, which is computed rather
-  than asserted.** Only 3 of 7 joins are informative, so the terminal accumulated
-  standard deviation is 0.270%. Reaching 1% would need about 24 informative
-  joins, 5% about 574, and 10% about 2,189. The mechanism is real; at realistic
-  noise levels its accumulation is immaterial in any feasible design. This
-  strengthens the 1.3.0 comparison rather than undermining it: that comparison
-  ran with calibration noise several times too large and still found no
-  detectable advantage.
+- **Failure mode F1 is now a theorem rather than an argument.** Graph WLS weights
+  are edge precisions, so the covariance of the solution inverts a weighted graph
+  Laplacian and the variance of a recovered log scale is the effective resistance
+  to the reference chunk. A spanning path is resistances in series, which is F1
+  stated exactly; Rayleigh's monotonicity law then makes the full graph never
+  worse than any sequential stitch. The margin depends only on which windows
+  overlap, so it can be computed before collecting anything: 9.1x variance
+  reduction on this one-year design, 140x at fifteen years with a 15-day step.
+- **F1 is material at the protocol this project recommends.** Terminal scale
+  error at the measured dispersion is 0.40% for sequential stitching on one year,
+  but 2.79% against 0.23% at fifteen years with a 15-day step. The three earlier
+  null results are what the theorem predicts on short chains, not evidence
+  against the mechanism.
 - On real data the two methods are indistinguishable: correlation 1.000000 and a
   largest absolute difference of 0.195 points on the 0--100 index scale.
 

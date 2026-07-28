@@ -345,6 +345,56 @@ c|u|-\frac{1}{2}c^2, & |u|>c.
 得之（為簡潔略去下標 $-r$）。效率為 Gauss--Markov theorem 的直接應用。
 \end{proof}
 
+上述命題只說 graph WLS 在給定 edge 估計下是 BLUE，並未回答本文最關心的問題：\emph{相對於逐段 stitching 究竟好多少}。失效模式 F1 過去只是文字主張。下述命題把它化為一個等式，並且只依賴 chunk 設計、不依賴雜訊水準。
+
+\begin{proposition}[校準變異數即有效電阻]
+\label{prop:reff}
+將 overlap graph 視為電路，令 edge $e$ 的\emph{電導}為其精度 $w_e=1/\Var(\widehat\delta_e)$。則對任意 chunk $j$ 與 reference $r$，
+\begin{equation}
+\Var(\widehat\ell_j-\widehat\ell_r\mid B)=R_{\mathrm{eff}}(j,r),
+\label{eq:reff}
+\end{equation}
+其中 $R_{\mathrm{eff}}$ 為加權圖 Laplacian $L=B'WB$ 意義下 $j$ 與 $r$ 之間的有效電阻。由此得兩個推論：
+
+\textbf{(i)} 逐段 stitching 為同一估計量限制在一條 spanning path 上，其有效電阻是所經各 edge 電阻之\emph{和}，因而隨接合數線性成長。這就是 F1，且為精確陳述而非比喻。
+
+\textbf{(ii)}（Rayleigh 單調性）在圖中增加任一 edge 不會提高任何一對節點間的有效電阻。因此
+\begin{equation}
+R_{\mathrm{eff}}^{\text{graph}}(j,r)\;\le\;R_{\mathrm{eff}}^{\text{path}}(j,r)
+\quad\text{對所有 }j,
+\label{eq:rayleigh}
+\end{equation}
+即\textbf{全域圖校準在校準變異數上永不劣於任何逐段 stitching}，且差距可在收集任何資料\emph{之前}由設計本身算出。
+\end{proposition}
+
+\begin{proof}
+以 $r$ 為接地點，刪去對應列與欄後的 grounded Laplacian 恰為 $B_{-r}'WB_{-r}$，而\cref{eq:graphwls}的估計量共變異數為 $(B_{-r}'WB_{-r})^{-1}$。電網理論中，接地 Laplacian 逆矩陣的第 $j$ 個對角元即為 $j$ 至接地點的有效電阻，故得\cref{eq:reff}。推論 (i) 因 path 為串聯電路，電阻相加。推論 (ii) 為 Rayleigh 單調性定理：增加 edge 等同增加並聯路徑，不會提高兩點間等效電阻。
+\end{proof}
+
+\begin{remark}[這使 F1 成為可在設計階段計算的量]
+\label{rem:designtool}
+\cref{eq:reff} 中 $\Var(\widehat\delta_e)\approx\sigma^2/n_e$（$n_e$ 為重疊天數，$\sigma$ 為每日 log-ratio 離散度），故 $\sigma^2$ 在 path 與 graph 的比值中約掉：\textbf{變異數降幅只是 chunk 設計的函數}。以真實資料實測的 $\sigma=0.0188$ 換算成終端 chunk 的尺度標準差：
+
+\begin{table}[H]
+\centering
+\small
+\caption{以\cref{eq:reff} 事前計算的校準誤差。$R_{\mathrm{eff}}$ 以 $\sigma^2$ 為單位。}
+\label{tab:designreff}
+\begin{tabular}{lrrrr}
+\toprule
+設計（歷史跨度、視窗／步進） & chunks & 降幅 & 逐段 & 全域圖\\
+\midrule
+1 年，180／30（本文實測） & 8 & $10.5\times$ & $0.40\%$ & $0.12\%$\\
+5 年，180／30 & 56 & $18.2\times$ & $1.14\%$ & $0.27\%$\\
+15 年，180／30 & 178 & $20.1\times$ & $2.06\%$ & $0.46\%$\\
+15 年，180／15（\cref{tab:recommended} 建議） & 355 & $140.5\times$ & $\mathbf{2.79\%}$ & $\mathbf{0.23\%}$\\
+\bottomrule
+\end{tabular}
+\end{table}
+
+1.4.0 起，\texttt{CalibrationResult.diagnostics} 直接輸出 \texttt{max\_\allowbreak log\_\allowbreak scale\_\allowbreak variance}、\texttt{sequential\_\allowbreak max\_\allowbreak log\_\allowbreak scale\_\allowbreak variance} 與兩者之比 \texttt{calibration\_\allowbreak variance\_\allowbreak reduction}。
+\end{remark}
+
 若 $\widehat\ell_j$ 近似常態且 $\Var(\widehat\ell_j)=s_j^2$，直接使用 $\exp(-\widehat\ell_j)$ 會有 lognormal transformation bias。若校準目的為將 $Y_{jt}$ 除以 $a_j$，可採一階修正
 \begin{equation}
 \widehat{a_j^{-1}}_{\,bc}
@@ -481,17 +531,26 @@ $0.030$（\textbf{模擬器預設}） & 0.046424 & 2.47\\
 
 這對 \cref{sec:calexp} 的解讀是\emph{加強而非否定}：該比較是在校準噪音被高估數倍的情境下進行的，而即使在那個對 F1 有利的情境中，全域圖仍未取得可偵測的精度優勢。以真實噪音水準重跑只會讓差距更小。
 
-\subsubsection{一年的 chunk 對 F1 沒有檢定力，而這可以量化}
+\subsubsection{一年的 chunk 為何看不到 F1，以及 F1 何時開始重要}
 
-兩個方法在真實資料上幾乎不可區分：相關係數 $1.000000$，逐日相對差中位數 $0.00026$、最大 $0.00123$，在 0--100 的指數尺度上最大絕對差僅 $0.195$ 點。F1 的特徵訊號也不存在——尺度差異並未隨鏈位置成長（末三段對前三段之比 $1.03$；Spearman $\rho=-0.024$，$p=0.955$）。
+兩個方法在真實資料上幾乎不可區分：相關係數 $1.000000$，逐日相對差中位數 $0.00026$、最大 $0.00123$，在 0--100 的指數尺度上最大絕對差僅 $0.195$ 點。
 
-但這\textbf{不構成 F1 被推翻的證據}，因為這個設計根本累積不出東西，而這一點可以直接算出來。F1 靠累積運作，鏈末端的誤差變異數是所經各接合變異數之和，零離散度的接合貢獻為零。本設計 7 個接合中僅 3 個帶資訊，有效接合的 se 中位數為 $0.002037$，鏈末端可累積的標準差因此僅 $0.0027$ log points，即 $\mathbf{0.270\%}$。反解可得：累積到 $1\%$ 需約 24 個有效接合，$5\%$ 需 574 個，$10\%$ 需 2{,}189 個。這三個數字是\emph{下界}：所用的 se 中位數取自全部 21 條有效重疊，其中包含較短的重疊；若只計 30 日步進下相鄰接合的 150 日重疊（se 約 $0.0014$），達到 $1\%$ 需約 50 個接合。換言之，此處刻意採用對 F1 較有利的估計。
+\begin{remark}[一個必須指出的方法錯誤]
+\label{rem:n1}
+以「兩方法點估計之差是否隨鏈位置成長」來檢驗 F1 是\emph{錯的估計量}。F1 是關於\emph{變異數}的主張，而單一 pull 只提供一個 realization；由 $n=1$ 無從估計變異數，該檢定的檢定力在建構上即為零，與資料量無關。\cref{prop:reff} 使抽樣完全不必要：變異數比即有效電阻比，是設計的確定性函數。
+\end{remark}
 
-\begin{remark}[F1 是真的，但在任何可行的設計中都不重要]
+依\cref{prop:reff} 計算本設計：全域圖的最大 $\Var(\widehat\ell_j)=1.01\times10^{-6}$，spanning path 為 $9.26\times10^{-6}$，**降幅 $9.13$ 倍**，且降幅沿鏈位置單調成長（$2.1\times\to9.1\times$）。**F1 的機制確實在運作**，且其大小可精確算出，不需任何檢定。
+
+但換算成絕對尺度，本設計下逐段 stitching 的終端誤差僅 $0.40\%$、全域圖 $0.12\%$。**比值大、絕對值小**，兩者並不矛盾——這正是一年設計看不到差異的原因，也是先前三次模擬實驗得到 null 的原因。
+
+\begin{remark}[F1 在本文自己建議的 protocol 下是實質的]
 \label{rem:f1scale}
-以真實觀測到的重疊長度與離散度計算，逐段 stitching 的尺度誤差累積要達到 $5\%$ 需要約 574 個有效接合。以 30 天步進計，那遠超過 Google Trends 服務存在的年數。\cref{sec:calexp} 的模擬之所以看得到 $4.75$ 倍的成長，是因為模擬器的 chunk 噪音高估了約 4.5 倍。
+\cref{tab:designreff} 顯示，尺度誤差隨歷史跨度成長：15 年、180 日視窗、15 日步進——即\cref{tab:recommended} 所建議的規格——逐段 stitching 的終端尺度誤差為 $\mathbf{2.79\%}$，全域圖為 $\mathbf{0.23\%}$。對一條橫跨 15 年的注意力指數而言，$2.79\%$ 的端點尺度偏誤是一個緩慢漂移，形態上與趨勢難以區分，正是 GT 文獻反覆警告的 artificial low-frequency drift。
 
-因此本文對 F1 的正確陳述是：機制為真且可被量測，但在真實資料的雜訊水準下，其累積量在任何現實可行的 GT 設計中都不具實質意義。全域圖校準值得採用的理由不是它更準，而是\cref{tab:realdata} 中那些逐段 stitching 結構上無法提供的診斷——連通性、condition number、cycle 閉合誤差。這與 \cref{rem:pattern} 的結論一致，並把它推進了一步：先前三次是「機制成立但效果二階」，本次是「機制成立且效果的上界可被計算」。
+因此本文對 F1 的正確陳述是：\textbf{機制為真、可被證明（\cref{prop:reff}）、且在建議規模下具實質意義}；本文一年份的實測之所以看不到它，是因為該設計的絕對誤差上限只有 $0.40\%$。\cref{sec:calexp} 與\cref{sec:montecarlo} 的 null results 並非 F1 的反證，而是\cref{prop:reff} 的直接預測：在短鏈上有效電阻差距的絕對值必然微小。
+
+這也修正了 \cref{rem:pattern} 的解讀。先前三次的共同結論是「機制成立但效果二階」；\cref{prop:reff} 說明其中至少校準這一項並非二階，而是\emph{規模相依}——效果隨接合數成長，而先前所有實驗都在效果最小的一端進行。全域圖校準值得採用的理由，除了\cref{tab:realdata} 中逐段 stitching 結構上無法提供的診斷之外，還有\cref{eq:rayleigh} 給出的無條件保證：它永不更差。
 \end{remark}
 
 \section{第二階段：跨 pull 相依性、duplicates 與量測可靠度}
