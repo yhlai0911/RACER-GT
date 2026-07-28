@@ -359,6 +359,67 @@ def test_kish_count_equals_the_pull_count_only_under_equal_weights():
     assert result.diagnostics["kish_effective_pulls"] < 6.0
 
 
+def _heterogeneous_trial(noise_sds: tuple[float, ...], seed: int) -> tuple[float, float]:
+    """RMSE of the GLS consensus and of a simple mean against the known latent series."""
+
+    rng = np.random.default_rng(seed)
+    dates = pd.date_range(START, periods=300, freq="D")
+    day = np.arange(300, dtype=float)
+    latent = 100.0 + 20.0 * np.sin(day / 29.0) + 8.0 * np.cos(day / 11.0)
+
+    matrix = pd.DataFrame(
+        {
+            f"P{index:03d}": latent * np.exp(rng.normal(0.0, sd, size=300))
+            for index, sd in enumerate(noise_sds)
+        },
+        index=dates,
+    )
+    result = fit_gls_consensus(matrix, ConsensusConfig(), baseline_start=START)
+
+    target = latent / latent.mean() * 100.0
+    gls = result.consensus.set_index("historical_date")["value"].to_numpy(dtype=float)
+    # The simple mean has to be taken on the aligned matrix, or the comparison is
+    # between two different scales rather than between two estimators.
+    simple = result.aligned_matrix.mean(axis=1).to_numpy(dtype=float)
+    return (
+        float(np.sqrt(np.mean((gls - target) ** 2))),
+        float(np.sqrt(np.mean((simple - target) ** 2))),
+    )
+
+
+def test_gls_matches_a_simple_mean_when_pulls_are_homogeneous():
+    """Reproduce the manuscript's null result, and show what produces it.
+
+    With identical error structure across pulls the minimum-variance weights are
+    equal weights, so there is nothing for covariance adjustment to exploit. The
+    Monte Carlo section reports no detectable advantage; this is why.
+    """
+
+    gls, simple = zip(
+        *(_heterogeneous_trial((0.06,) * 9, 1000 + k) for k in range(10)), strict=True
+    )
+    assert np.mean(gls) == pytest.approx(np.mean(simple), rel=0.05)
+
+
+def test_gls_beats_a_simple_mean_decisively_when_variances_differ():
+    """The condition the manuscript's recommendation was missing.
+
+    The published advice -- expect no detectable improvement from covariance
+    adjustment -- was read off a design that makes every pull homogeneous. Give the
+    pulls different variances and the same estimator wins every replication by a
+    wide margin. The dependence-heterogeneity experiment in the manuscript varies
+    correlation between pulls, not their variances, so it did not test this.
+    """
+
+    ladder = tuple(0.03 * 1.35**i for i in range(9))  # true variance ratio ~122
+    results = [_heterogeneous_trial(ladder, 2000 + k) for k in range(10)]
+    gls = np.array([r[0] for r in results])
+    simple = np.array([r[1] for r in results])
+
+    assert (gls < simple).all()
+    assert gls.mean() < 0.7 * simple.mean()
+
+
 def test_daily_consensus_uses_renormalized_weights_when_pulls_are_missing():
     """Recompute one day by hand. The point estimate does renormalize --- the
     standard error does not, which is recorded in review/tickets/08."""

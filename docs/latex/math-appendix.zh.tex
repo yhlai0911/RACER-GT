@@ -208,6 +208,38 @@ $\bar{w}\ge 1/N$ 時等權向量 $w_i=1/N$ 可行，故非空；可行集是超�
 
 Ledoit--Wolf 估計式為 $\hat{\Sig}=(1-\alpha)S+\alpha F$，其中 $S$ 為樣本共變異數、$F$ 為良置條件的目標、$\alpha\in[0,1]$ 使期望 Frobenius 平方損失最小。採用它是因為 $N$ 相對於日期數通常偏小，$S^{-1}$ 相應不穩定。
 
+\subsection{殘差共變異數的分辨力上界}\label{app:resolution-zh}
+
+$\hat{\Sig}$ 由殘差估計，而殘差是各 pull 減去**由 pull 自身構成**的當日中心趨勢。被減數因而與被減的對象相關，這在看到任何資料之前就限制了估出的變異數彼此能相差多少。
+
+\begin{proposition}[殘差共變異數的分辨力上界]
+\label{prop:resolution-zh}
+設 $Z_{tj}=X_t+e_{tj}$，$e_{tj}$ 跨 $j$ 獨立且 $\Var(e_{tj})=\sigma_j^2$，殘差對跨 pull 均值取值，$r_{tj}=Z_{tj}-m^{-1}\sum_k Z_{tk}$。令 $S=\sum_k\sigma_k^2$，則
+\begin{equation}
+\Var(r_{tj})=\sigma_j^2\left(1-\frac{2}{m}\right)+\frac{S}{m^2}.
+\label{eq:residvar-zh}
+\end{equation}
+若 $\sigma_2=\dots=\sigma_m=\sigma$ 且 $\sigma_1\to 0$，則
+\begin{equation}
+\frac{\Var(r_{t2})}{\Var(r_{t1})}\longrightarrow
+\frac{m^2-m-1}{m-1}=m-\frac{1}{m-1},
+\label{eq:resolutionbound-zh}
+\end{equation}
+此極限**不依賴 $\sigma$**。當 $m=2$ 時該比值對任意 $\sigma_1,\sigma_2$ 恆等於 1。
+\end{proposition}
+
+\begin{proof}
+令 $\bar{e}_t=m^{-1}\sum_k e_{tk}$，則 $r_{tj}=e_{tj}-\bar{e}_t$。由獨立性得 $\Cov(e_{tj},\bar{e}_t)=\sigma_j^2/m$ 與 $\Var(\bar{e}_t)=S/m^2$，故 $\Var(r_{tj})=\sigma_j^2-2\sigma_j^2/m+S/m^2$，即 \eqref{eq:residvar-zh}。在所述設定下 $S\to(m-1)\sigma^2$，因此 $\Var(r_{t1})\to(m-1)\sigma^2/m^2$、$\Var(r_{t2})\to\sigma^2\bigl[(m-2)/m+(m-1)/m^2\bigr]=\sigma^2(m^2-m-1)/m^2$，兩者之比為 \eqref{eq:resolutionbound-zh}，$\sigma^2$ 相消。當 $m=2$ 時因子 $1-2/m$ 為零，由 \eqref{eq:residvar-zh} 得 $\Var(r_{t1})=\Var(r_{t2})=S/4$，與 $\sigma_1,\sigma_2$ 無關；更強的是 $r_{t1}=(e_{t1}-e_{t2})/2=-r_{t2}$ 逐點成立。
+\end{proof}
+
+\begin{remark}[這個上界是關於什麼的]
+\cref{prop:resolution-zh} 講的是「對樣本自身取中心趨勢」這件事，不是 Google Trends 的性質。凡是由「對同一批觀測的某個統計量取殘差」所估的共變異數都適用，且無論真實比值多大，估出的比值上限大約就是被合併的觀測數。以真實變異數比 $4\times 10^{8}$ 模擬，$m=3,\dots,10$ 皆與 \eqref{eq:resolutionbound-zh} 相符至 $0.6\%$ 以內。
+\end{remark}
+
+\begin{remark}[中位數被減數]
+實作減的是當日中位數而非均值。中位數不是線性泛函，無對應閉式；數值上它在同一 $m$ 範圍內優於均值 3 至 50\%，並隨 $m$ 增大收斂到同一上界——它改變常數，不改變結論。
+\end{remark}
+
 \subsection{有效 pull 數}
 
 輸出兩個摘要：

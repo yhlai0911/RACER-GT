@@ -1168,7 +1168,8 @@ combination: it gives up the theoretical optimum in exchange for refusing the
 large offsetting positive and negative weights that an ill-conditioned
 $\hat{\Sig}^{-1}$ would otherwise produce. We regard this as the right trade for
 a measurement instrument that must behave predictably on data the analyst has
-not yet seen.
+not yet seen. \Cref{sec:resolution} shows when $\bar{w}$ actually binds, which is
+not on data of the kind analysed here, and why that is not a reason to remove it.
 \end{remark}
 
 \subsection{Effective number of pulls}
@@ -1190,6 +1191,80 @@ conservative --- it understates information and therefore errs toward rejecting 
 batch --- but it means the effective strictness of
 \texttt{min\_spectral\_effective\_pulls} exceeds its nominal value, most visibly
 in small designs.
+
+\subsection{What the covariance can resolve}\label{sec:resolution}
+
+$\hat{\Sig}$ is estimated from residuals taken about the daily central tendency of
+the pulls themselves, so the subtrahend is correlated with what it is subtracted
+from. The mathematical appendix shows that this caps how different the estimated
+variances can be: with a mean subtrahend, as one pull becomes arbitrarily precise
+the largest variance ratio $\hat{\Sig}$ can report tends to $m-1/(m-1)$,
+independently of the true ratio. Simulation at a true variance ratio of
+$4\times10^{8}$ matches to within $0.6\%$ for $m$ from three to ten. The median
+the implementation uses is better by 3 to 50 percent and converges to the same
+bound.
+
+The bound is stated for one configuration --- a single arbitrarily precise pull
+against an otherwise homogeneous set --- and it is not a universal ceiling. With
+nine pulls whose standard deviations form a geometric ladder, a true variance
+ratio of $122$ is reported as $45$, well above $m-1/(m-1)=8.9$. What the
+proposition establishes is that centring on the sample costs resolution, and how
+much in the case that can be solved exactly. Its sharpest instance is $m=2$, where
+the bound is one identically: the residuals satisfy $r_1=-r_2$ pointwise, so no
+covariance estimate can distinguish two retrievals however different their true
+precisions are. Two-retrieval designs cannot weight by estimated precision, and
+that holds for any data, not just Trends.
+
+It would be tempting to read the null result of \cref{sec:monte-carlo} through
+this bound, and it would be wrong. In the data-generating process used there every
+pull carries the same error structure, so the true variance ratio is one and the
+minimum-variance weights are equal weights: there is nothing for covariance
+adjustment to exploit, and the bound never binds. The dependence-heterogeneity
+experiment of \cref{sec:depexp} varies the correlation between pulls rather than
+their variances, so it does not test this either.
+
+Under variance heterogeneity the picture is different. In a simplified controlled
+process --- one latent series, nine pulls with lognormal retrieval noise whose
+standard deviations form a geometric ladder, thirty replications, no chunking or
+design facets --- the covariance-adjusted consensus wins every replication. At a
+true variance ratio of $122$ the mean RMSE is $2.88$ against $5.59$ for a simple
+mean; at $12144$ it is $3.86$ against $17.75$. The homogeneous case reproduces the
+null result, with $2.040$ against $2.036$ and wins in $27\%$ of replications.
+
+The practical recommendation of \cref{sec:monte-carlo} therefore needs its
+condition attached: covariance adjustment brings no detectable improvement
+\emph{when the pulls are homogeneous in variance}, which is what that design makes
+them. Whether real retrievals differ in variance is an empirical question this
+paper does not settle; it is the same repeated-measurement structure whose
+existence \cref{sec:design} is built to test, and it has not yet been measured on
+real data. Both statements should be read together: nothing here shows the
+weighting helps on Trends data, and nothing shows it cannot.
+
+The reading of the constraints needs a correction of its own. Because the ratio
+saturates on homogeneous designs,
+the maximum weight stays near $0.35$ and $\bar{w}=0.50$ does not bind on any
+configuration we have constructed. It would be wrong to conclude the cap guards
+against nothing. Estimating $\hat{\Sig}$ from residuals about the current weighted
+consensus and iterating --- the obvious way to escape the bound --- is positive
+feedback: whichever pull gains weight has its residual shrunk, which raises its
+apparent precision, which raises its weight again. The maximum weight reaches one
+by the fourth pass and the reported variance ratio reaches $10^{11}$ by the fifth,
+monotonically. Weight concentrating on a single pull is precisely what appears the
+moment $\hat{\Sig}$ can discriminate, and in a sharper form than the remark above
+anticipates. The cap is not slack because it is unnecessary; it is slack because
+the quantity it guards has been suppressed upstream.
+
+Where resolution does need to be recovered, the remaining route is an external
+reference. Subtracting a series independent of every pull gives
+$\Var(r_j)=\sigma_j^2+v$, whose ratio is unbounded as $v\to 0$, but the reference
+must be more precise than the most precise pull: at $v$ corresponding to a
+standard deviation of $1.0$ it recovers $0.31\%$ of a true ratio of $1600$, which
+is what the median already delivers. Daily Google Trends offers no such series.
+The frequency benchmark of \cref{sec:benchmark} is lower frequency by
+construction, and the design-based estimator of \cref{sec:designest} is another
+combination of the same pulls. What would supply it is an independent estimate of
+per-pull variance from the repeated-measurement structure itself, which is what
+the acquisition design of \cref{sec:design} exists to produce.
 
 \subsection{Per-day standard errors, and what they are not}\label{sec:dailyse}
 
@@ -1483,6 +1558,10 @@ derivation depends on no simulation. It changes the practical recommendation: at
 the design sizes this paper recommends (21--42 pulls, a single year), no
 detectable gain in point accuracy should be expected from the covariance
 adjustment, and a simple mean is an equally defensible primary choice.
+\Cref{sec:resolution} attaches the condition under which that holds: this design
+gives every pull the same error structure, so the minimum-variance weights are
+equal weights by construction. Where the pulls differ in variance the same
+estimator wins every replication by a wide margin.
 
 It also does not change the \emph{diagnostic} value of the adjustment. The
 spectral effective pull count fell from 4.93 to 2.95, correctly telling the

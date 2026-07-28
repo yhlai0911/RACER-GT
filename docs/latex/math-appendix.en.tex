@@ -293,6 +293,62 @@ well-conditioned target, and $\alpha\in[0,1]$ chosen to minimize expected
 squared Frobenius loss. It is used because $N$ is typically small relative to
 the number of dates and $S^{-1}$ is correspondingly unstable.
 
+\subsection{What the residual covariance can resolve}\label{app:resolution}
+
+$\hat{\Sig}$ is estimated from residuals taken about the daily central tendency of
+the pulls themselves. The subtrahend is therefore correlated with what it is
+subtracted from, and that bounds how different the estimated variances can be,
+before any data is seen.
+
+\begin{proposition}[Resolution bound of the residual covariance]
+\label{prop:resolution}
+Let $Z_{tj}=X_t+e_{tj}$ with $e_{tj}$ independent across $j$ and
+$\Var(e_{tj})=\sigma_j^2$, and let residuals be taken about the cross-pull mean,
+$r_{tj}=Z_{tj}-N^{-1}\sum_k Z_{tk}$. Then, writing $S=\sum_k\sigma_k^2$,
+\begin{equation}
+\Var(r_{tj})=\sigma_j^2\left(1-\frac{2}{N}\right)+\frac{S}{N^2}.
+\label{eq:residvar}
+\end{equation}
+If $\sigma_2=\dots=\sigma_N=\sigma$ and $\sigma_1\to 0$, then
+\begin{equation}
+\frac{\Var(r_{t2})}{\Var(r_{t1})}\longrightarrow
+\frac{N^2-N-1}{N-1}=N-\frac{1}{N-1},
+\label{eq:resolutionbound}
+\end{equation}
+a limit that does not depend on $\sigma$. At $N=2$ the ratio equals one
+identically, for every $\sigma_1$ and $\sigma_2$.
+\end{proposition}
+
+\begin{proof}
+Write $\bar{e}_t=N^{-1}\sum_k e_{tk}$, so $r_{tj}=e_{tj}-\bar{e}_t$. By
+independence $\Cov(e_{tj},\bar{e}_t)=\sigma_j^2/N$ and $\Var(\bar{e}_t)=S/N^2$,
+hence
+$\Var(r_{tj})=\sigma_j^2-2\sigma_j^2/N+S/N^2$, which is \eqref{eq:residvar}.
+Under the stated configuration $S\to(N-1)\sigma^2$, so
+$\Var(r_{t1})\to(N-1)\sigma^2/N^2$ and
+$\Var(r_{t2})\to\sigma^2\bigl[(N-2)/N+(N-1)/N^2\bigr]
+=\sigma^2(N^2-N-1)/N^2$. The ratio of the two is \eqref{eq:resolutionbound}, and
+$\sigma^2$ cancels. For $N=2$ the factor $1-2/N$ vanishes, so \eqref{eq:residvar}
+gives $\Var(r_{t1})=\Var(r_{t2})=S/4$ regardless of $\sigma_1,\sigma_2$; more
+strongly, $r_{t1}=(e_{t1}-e_{t2})/2=-r_{t2}$ pointwise.
+\end{proof}
+
+\begin{remark}[What the bound is about]
+\Cref{prop:resolution} concerns centring on the sample, not Google Trends. It
+applies to any covariance estimated from residuals about a statistic of the same
+observations, and it caps the ratio at roughly the number of observations being
+combined however large the true ratio is. Simulation at a true variance ratio of
+$4\times 10^{8}$ reproduces \eqref{eq:resolutionbound} to within $0.6\%$ for
+$N=3,\dots,10$.
+\end{remark}
+
+\begin{remark}[The median subtrahend]
+The implementation subtracts the daily median rather than the mean, which is not
+a linear functional and admits no corresponding closed form. Numerically it is
+better by 3 to 50 percent over the same range of $N$ and converges to the same
+bound as $N$ grows, so it changes the constant and not the conclusion.
+\end{remark}
+
 \subsection{Effective number of pulls}
 
 Two summaries are reported:
