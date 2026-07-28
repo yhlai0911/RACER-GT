@@ -218,6 +218,46 @@ N_{\text{spec}}=\frac{\left(\sum_{m}\lambda_m\right)^2}{\sum_{m}\lambda_m^2},
 \end{equation}
 $\lambda_m$ 為殘差相關矩陣的特徵值。前者衡量權重集中度，後者衡量變異被共享的程度。兩者僅在權重相等且殘差不相關時等於 $N$，在存在 near-duplicate 時都會明顯低於 $N$。直接把 $N$ 當樣本數會高估精度，這正是 acceptance rule 以 $N_{\text{spec}}$ 表述的原因。
 
+\subsection{每日標準誤}\label{app:dailyse-zh}
+
+共識數列附有每日標準誤。它\emph{不是}逐日的變異數估計，而 \cref{app:eiv-zh} 的下游修正卻把它當作變異數使用，因此在此給出完整構造。
+
+令 $\hat{X}_t$ 為第 $t$ 日的共識值、$y_{tj}$ 為 pull $j$ 對齊後的值。以前述 $\hat{\Sig}$ 與 $\wvec$ 定義
+\begin{equation}
+s_{\text{base}}=\sqrt{\wvec^{\top}\hat{\Sig}\wvec},
+\qquad
+M_t=\operatorname{med}_j\bigl|y_{tj}-\hat{X}_t\bigr|,
+\qquad
+\bar{M}=\operatorname{med}_t M_t .
+\end{equation}
+實際輸出的量為
+\begin{equation}
+\mathrm{se}_t
+= s_{\text{base}}\cdot
+\operatorname{clip}\!\left(\frac{M_t}{\bar{M}},\;c_{\text{lo}},\;c_{\text{hi}}\right),
+\qquad (c_{\text{lo}},c_{\text{hi}})=(0.25,\,4),
+\label{eq:dailyse-zh}
+\end{equation}
+關閉區域項時退化為 $\mathrm{se}_t=s_{\text{base}}$。輸出的區間為 $\hat{X}_t\mp 1.96\,\mathrm{se}_t$。
+
+\begin{remark}[三個低估來源，方向完全相同]
+\Cref{eq:dailyse-zh} 是跨 pull 離散度的條件式\emph{尺度}，不是逐日的 $\Var(\hat{X}_t)$ 估計。有三個彼此獨立的機制把它往下壓，且都不是捨入層級的小事：
+
+\begin{enumerate}
+\item \emph{倍率上限。} 離散度真的達到典型日十倍的那一天，只會被報成四倍。上限恰好在不確定性最大的日子上綁住。
+
+\item \emph{局部重新加權未進入變異數。} 第 $t$ 日若有 pull 缺失，共識以可用集合上重新正規化的權重形成，但 $s_{\text{base}}$ 只由全域 $\wvec$ 算一次。權重集中於較少 pull 會提高真實變異數，而 \eqref{eq:dailyse-zh} 除非 $M_t$ 恰好同步上升，否則不會反應。
+
+\item \emph{殘差是對 pull 自身的逐日中位數取的。} 使 $N_{\text{spec}}$ 向下偏誤的同一個運算，也壓縮了用以估計 $\hat{\Sig}$ 的殘差離散度，$s_{\text{base}}$ 因而繼承該壓縮。
+\end{enumerate}
+
+方向值得與 $N_{\text{spec}}$ 對照強調：後者的偏誤是保守的——低估資訊量因而傾向拒絕該批資料。這三者的方向相反。它們讓數列看起來比設計所能支撐的更精確，而那正是會讓任何由它得出的結論更好看的方向。
+\end{remark}
+
+\begin{remark}[對誤差修正估計量的後果]
+\cref{app:moment-zh} 的動差修正與誤差校正因素模型，都把 $\mathrm{se}_t^2$ 當作已知的 $\Omega$。一個一致偏小的 $\Omega$ 會造成\emph{校正不足}，而所有輸出診斷仍彼此自洽，因此結果讀起來仍像已校正。要偵測這個狀態需要真實的 $\Omega$，而那恰好是取不到的東西。在 \eqref{eq:dailyse-zh} 被真正的逐日變異數取代之前，凡依賴 $\Omega$ \emph{大小}（而非其存在）的結果，都應理解為以一個下界為條件。
+\end{remark}
+
 % =============================================================================
 \section{頻率 benchmark}
 
@@ -241,9 +281,9 @@ Exact 模式把聚合約束 $A\bm{x}=\bm{b}$ 由懲罰改為硬約束，得 KKT 
 在 $A$ 為列滿秩時可解。預設為 soft 模式，因為低頻 GT 數列本身也帶測量誤差，硬性套用等於把該誤差原封不動轉嫁到日頻數列而不加聲明。
 
 % =============================================================================
-\section{測量誤差修正}
+\section{測量誤差修正}\label{app:eiv-zh}
 
-\subsection{動差修正}
+\subsection{動差修正}\label{app:moment-zh}
 
 令 $W_t=X_t+u_t$、$M$ 為控制變數的 residual maker、$\Omega_u$ 為測量誤差共變異數。由
 $\E[\bm{W}^\top M\bm{W}]=\E[\bm{X}^\top M\bm{X}]+\tr(M\Omega_u)$ 與

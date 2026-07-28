@@ -795,6 +795,16 @@ m_{\mathrm{eff}}^{\mathrm{Kish}}=\frac{1}{\sum_i w_i^2},
 \end{equation}
 用以觀察共識是否被少數 pulls 支配。
 
+\subsection{每日標準誤，以及它不是什麼}\label{sec:dailyse-zh}
+
+每條共識數列都附有每日標準誤，而該量正是 \cref{sec:eiv-zh} 的下游修正所消費的輸入。其精確構造詳見數學附錄；此處要處理的是「它是什麼」與「它容易被讀成什麼」之間的落差。
+
+它是跨 pull 離散度的條件式\emph{尺度}：一個全域的 $\sqrt{\wvec^{\top}\hat{\Sig}\wvec}$，乘上當日中位絕對離差相對於典型日的比值，且該倍率被限制在 $[0.25,\,4]$ 之內。它不是逐日分別估計的變異數，且構造上有三個彼此獨立的機制把它往下壓——倍率的上界、缺 pull 日重新正規化權重從未進入變異數、以及殘差對 pull 自身逐日中位數取值所繼承的壓縮。
+
+方向值得明講，因為它與剛才描述的 $m_{\mathrm{eff}}^{\mathrm{spectral}}$ 偏誤方向相反。後者是保守的：低估資訊量、傾向拒絕該批資料。這三者的方向相反，讓數列看起來比設計所能支撐的更精確。
+
+這並不撤回「本框架在其他方法完全不提供的地方提供了每日不確定性」這個主張；該主張成立，且它正是下游修正一節的實質內容。受限的是能放在\emph{大小}上的份量。一個被一致低估的 $\Omega$ 會讓誤差修正估計量\emph{校正不足}，而它輸出的每一項診斷仍彼此自洽，結果讀起來仍像已校正；要把這個狀態與成功的校正分開，需要真實的 $\Omega$——那恰好是取不到的。因此，凡取決於量測誤差\emph{有多大}（而非它是否存在）的結果，都應理解為以一個下界為條件。
+
 \section{第四階段：日、週、月頻率一致化}
 
 僅以短視窗日頻 chunks 接合，可能保留日際形狀卻失去長期尺度；Eichenauer et al.（2022）稱此為 frequency inconsistency。令 preliminary daily consensus 為 $\bm z\in\R^T$，lower-frequency benchmark 為 $\bm b\in\R^K$，aggregation matrix $A$ 的第 $k$ 列對 benchmark period $k$ 內日資料給予平均權重。
@@ -875,7 +885,7 @@ Exact-cell agreement 必須與 zero share 一起解讀。兩條低量序列若�
 
 關鍵詞／Topic 的 construct validity 必須另行檢查：語意與語言版本、可能的非財金用途、歷史首次合理出現時間、主要 peaks 的事件對應、搜尋量是否足夠，以及不同替代 terms 的結果是否一致。測量可靠而構念錯誤的指標仍然沒有研究效度 \cite{holzl2025}。
 
-\section{下游財金模型的 measurement-error correction}
+\section{下游財金模型的 measurement-error correction}\label{sec:eiv-zh}
 
 \subsection{Attenuation bias}
 

@@ -309,6 +309,72 @@ near-duplicates. Reporting $N$ itself as the sample size would overstate
 precision, which is why the acceptance rule is stated in terms of
 $N_{\text{spec}}$.
 
+\subsection{Per-day standard errors}\label{app:dailyse}
+
+The consensus series is published with a per-day standard error. It is not a
+per-day variance estimate, and because the downstream corrections of
+\cref{app:eiv} consume it as though it were, the construction is given in full.
+
+Let $\hat{X}_t$ denote the consensus on day $t$ and $y_{tj}$ the aligned value of
+pull $j$. With $\hat{\Sig}$ and $\wvec$ as above, define
+\begin{equation}
+s_{\text{base}}=\sqrt{\wvec^{\top}\hat{\Sig}\wvec},
+\qquad
+M_t=\operatorname{med}_j\bigl|y_{tj}-\hat{X}_t\bigr|,
+\qquad
+\bar{M}=\operatorname{med}_t M_t .
+\end{equation}
+The reported quantity is
+\begin{equation}
+\mathrm{se}_t
+= s_{\text{base}}\cdot
+\operatorname{clip}\!\left(\frac{M_t}{\bar{M}},\;c_{\text{lo}},\;c_{\text{hi}}\right),
+\qquad (c_{\text{lo}},c_{\text{hi}})=(0.25,\,4),
+\label{eq:dailyse}
+\end{equation}
+reducing to $\mathrm{se}_t=s_{\text{base}}$ when the local term is disabled. The
+published interval is $\hat{X}_t\mp 1.96\,\mathrm{se}_t$.
+
+\begin{remark}[Three understatements, all in the same direction]
+\Cref{eq:dailyse} is a conditional \emph{scale} on the dispersion across pulls,
+not an estimate of $\Var(\hat{X}_t)$ day by day. Three separate features push it
+downward, and none of them is a rounding matter:
+
+\begin{enumerate}
+\item \emph{The upper clip.} A day whose dispersion is genuinely ten times the
+typical day is reported at four times it. The bound binds exactly on the days
+where the uncertainty is largest.
+
+\item \emph{Local reweighting is not carried into the variance.} When some pulls
+are unavailable on day $t$, the consensus is formed with weights renormalized on
+the available set, but $s_{\text{base}}$ is computed once from the global
+$\wvec$. Concentrating weight on fewer pulls raises the true variance, and
+\eqref{eq:dailyse} does not respond unless $M_t$ happens to rise with it.
+
+\item \emph{Residuals are taken about the daily median of the pulls
+themselves.} The same operation that biases $N_{\text{spec}}$ downward also
+shrinks the residual dispersion from which $\hat{\Sig}$ is estimated, so
+$s_{\text{base}}$ inherits that shrinkage.
+\end{enumerate}
+
+The direction deserves emphasis by contrast with $N_{\text{spec}}$, whose bias is
+conservative: it understates information and therefore errs toward rejecting a
+batch. These three err the other way. They make the series look more precise than
+the design can support, which is the direction that flatters any conclusion drawn
+from it.
+\end{remark}
+
+\begin{remark}[Consequence for the error-corrected estimators]
+The moment correction of \cref{app:moment} and the error-corrected factor model
+both treat $\mathrm{se}_t^2$ as a known $\Omega$. An $\Omega$ that is uniformly
+too small under-corrects while every published diagnostic remains internally
+consistent, so the output still reads as corrected. Detecting that state requires
+the true $\Omega$, which is precisely what is unavailable. Until
+\eqref{eq:dailyse} is replaced by a genuine per-day variance, results that depend
+on the magnitude of $\Omega$ --- as opposed to its existence --- should be read as
+conditional on a lower bound.
+\end{remark}
+
 % =============================================================================
 \section{Temporal benchmarking}
 
@@ -344,9 +410,9 @@ the lower-frequency GT series is itself measured with error, and imposing it
 exactly would transfer that error into the daily series without acknowledgement.
 
 % =============================================================================
-\section{Measurement-error correction}
+\section{Measurement-error correction}\label{app:eiv}
 
-\subsection{Moment correction}
+\subsection{Moment correction}\label{app:moment}
 
 Let $W_t=X_t+u_t$, let $M$ be the residual maker for the controls, and let
 $\Omega_u$ be the measurement-error covariance. From

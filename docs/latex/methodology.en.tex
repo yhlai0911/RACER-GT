@@ -755,8 +755,8 @@ by retrieval noise. For a user that conclusion matters more than any single
 number: the value of this framework is not that it produces a more accurate
 series, but that it produces a series whose quality can be judged. Effective
 pull counts, dependence structure, cycle-consistency statistics, per-day
-conditional standard errors, and propagatable measurement uncertainty are
-information that RMSE neither expresses nor replaces.
+conditional standard errors (read with \cref{sec:dailyse}), and propagatable
+measurement uncertainty are information that RMSE neither expresses nor replaces.
 \end{remark}
 
 % =============================================================================
@@ -1191,6 +1191,38 @@ batch --- but it means the effective strictness of
 \texttt{min\_spectral\_effective\_pulls} exceeds its nominal value, most visibly
 in small designs.
 
+\subsection{Per-day standard errors, and what they are not}\label{sec:dailyse}
+
+Each consensus series is published with a per-day standard error, and that
+quantity is what the downstream correction of \cref{sec:eiv} consumes. Its exact
+construction is given in the mathematical appendix; what matters here is the gap
+between what it is and what it is easily read as.
+
+It is a conditional \emph{scale} on cross-pull dispersion: one global
+$\sqrt{\wvec^{\top}\hat{\Sig}\wvec}$ multiplied by the day's median absolute
+deviation relative to a typical day, with that multiplier confined to
+$[0.25,\,4]$. It is not a variance estimated separately for each day, and three
+independent features of the construction push it downward --- the upper bound on
+the multiplier, the fact that renormalizing weights on days with missing pulls
+never enters the variance, and the shrinkage inherited from taking residuals
+about the pulls' own daily median.
+
+The direction is worth stating plainly, because it runs opposite to the
+$N_{\text{spec}}$ bias just described. That one is conservative: it understates
+information and errs toward rejecting a batch. These three err the other way,
+making the series look more precise than the design supports.
+
+This does not retract the claim that the framework supplies per-day uncertainty
+where the alternatives supply none; that claim stands, and it is the substance of
+\cref{sec:eiv}. What it limits is the weight that can be put on the
+\emph{magnitude}. An error-corrected estimator given a uniformly understated
+$\Omega$ under-corrects while every diagnostic it reports remains internally
+consistent, so the output still reads as corrected, and separating that state
+from a successful correction requires the true $\Omega$ --- which is exactly what
+is unavailable. Results that turn on how large the measurement error is, rather
+than on the fact that it exists, should therefore be read as conditional on a
+lower bound.
+
 % =============================================================================
 \section{Stage 6: temporal benchmarking}\label{sec:benchmark}
 
@@ -1457,7 +1489,8 @@ spectral effective pull count fell from 4.93 to 2.95, correctly telling the
 researcher that nine pulls are now worth about three. A simple mean cannot supply
 that judgment, nor the near-duplicate dependence structure, the per-day
 conditional standard errors, or measurement uncertainty in a form the downstream
-EIV correction can consume. RMSE cannot answer whether a batch is usable at all,
+EIV correction can consume --- subject, on the magnitude of that uncertainty, to
+\cref{sec:dailyse}. RMSE cannot answer whether a batch is usable at all,
 and that is what this framework is mainly for.
 \end{remark}
 
