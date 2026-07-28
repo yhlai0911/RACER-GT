@@ -147,6 +147,7 @@ retracted:
       - "docs/latex/math-appendix.en.tex"
       - "docs/latex/math-appendix.zh.tex"
       - "review/tickets/25-every-step-needs-a-proposition.md"
+      - "review/HANDOFF-main-session-2.md"
 
   - id: weight_cap_guards_nothing
     superseded_by: "ticket 18: iterating Sigma diverges, so the cap is necessary"
@@ -160,6 +161,7 @@ retracted:
       - "docs/canonical-facts.yaml"
       - "review/tickets/12-audit-consensus-module.md"
       - "review/tickets/18-residual-centring-flattens-sigma.md"
+      - "review/HANDOFF-main-session-2.md"
 
   - id: news_index_retrospective_change_likely
     superseded_by: "measured 2026-07-28: published history is stable"
