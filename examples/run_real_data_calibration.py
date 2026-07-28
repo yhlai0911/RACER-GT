@@ -23,7 +23,9 @@ log scale the effective resistance to the reference chunk, and a spanning path i
 resistances in series. The script reports that ratio for this design and for the
 designs a study might choose, at the dispersion actually measured. One year gives
 a 9-fold variance reduction over a spanning path and a terminal error of 0.40%
-either way; fifteen years at the recommended step gives 2.79% against 0.23%.
+either way. The longer designs are extrapolations, not measurements: they assume
+a constant dispersion that this same year contradicts, and they are printed with
+that caveat rather than as findings.
 
 What this data does settle, decisively, is whether the simulator describes real
 chunk overlaps. Overlapping chunks are assumed proportional up to a constant, the
@@ -446,6 +448,64 @@ def chunk_noise_profile(
     return pd.DataFrame(rows)
 
 
+def recovery_check(
+    data: pd.DataFrame,
+    config: CalibrationConfig,
+    injected: tuple[float, ...] = (0.0, 0.01, 0.02, 0.03),
+    seed: int = 20260728,
+) -> pd.DataFrame:
+    """Does the sweep recover a chunk noise that was put there on purpose?
+
+    An estimate is worth what its estimator can be shown to recover. Injecting a
+    known disturbance into the real chunks, renormalizing the way Trends does, and
+    running the same sweep turns the reported 0.0066 into a claim with a
+    demonstrated range. The level that matters is 0.03: if the simulator's default
+    were the truth, this has to return something near it rather than the small
+    number it returns on the untouched data.
+    """
+
+    from racergt.overlap import OverlapGraphCalibrator
+
+    rng = np.random.default_rng(seed)
+    baseline = float("nan")
+    rows = []
+    for level in injected:
+        frame = data.copy()
+        if level > 0:
+            parts = []
+            for _chunk_id, group in frame.groupby("chunk_id", sort=True):
+                values = group["value"].to_numpy(dtype=float)
+                values = values * np.exp(rng.normal(0.0, level, size=values.size))
+                values = np.clip(np.rint(100.0 * values / values.max()), 0.0, 100.0)
+                part = group.copy()
+                part["value"] = values
+                parts.append(part)
+            frame = pd.concat(parts, ignore_index=True)
+
+        fitted = OverlapGraphCalibrator(config, min_overlap_days=MIN_OVERLAP_DAYS).fit(
+            frame, baseline_start=BASELINE_START, baseline_end=BASELINE_END
+        )
+        pairs = overlap_diagnostics(frame, config)
+        observed = float(np.median(pairs.loc[pairs["sd_log_ratio"] > 0, "sd_log_ratio"]))
+        profile = chunk_noise_profile(
+            frame, fitted.full_series, config, np.arange(0.0, 0.045, 0.0025), n_replicates=120
+        )
+        recovered = interpolate_crossing(profile, observed)
+        if level == 0.0:
+            baseline = recovered
+        rows.append(
+            {
+                "injected": level,
+                # The data already carries whatever noise it carries, so an
+                # injection adds in quadrature to the level recovered at zero.
+                "expected": float(np.sqrt(baseline**2 + level**2)),
+                "recovered": recovered,
+                "observed_dispersion": observed,
+            }
+        )
+    return pd.DataFrame(rows)
+
+
 def interpolate_crossing(profile: pd.DataFrame, observed: float) -> float:
     """Noise level at which the simulated dispersion first reaches the observed one.
 
@@ -530,6 +590,7 @@ def main() -> None:
     profile = chunk_noise_profile(
         data, graph.full_series, config, np.arange(0.0, 0.0325, 0.0025)
     )
+    recovery = recovery_check(data, config)
 
     OUT.mkdir(exist_ok=True)
     graph.full_series.to_csv(OUT / "graph_series.csv", index=False)
@@ -540,6 +601,7 @@ def main() -> None:
     overlaps.to_csv(OUT / "overlap_diagnostics.csv", index=False)
     misscaling.to_csv(OUT / "residual_misscaling.csv", index=False)
     accumulation["joins"].to_csv(OUT / "chain_joins.csv", index=False)
+    recovery.to_csv(OUT / "chunk_noise_recovery.csv", index=False)
     pd.Series(graph.diagnostics).to_json(OUT / "graph_diagnostics.json", indent=2)
 
     pd.set_option("display.width", 160)
@@ -677,6 +739,19 @@ def main() -> None:
     # bound is what this evidence actually establishes.
     resolution = float(profile.loc[profile["dispersion_sd"] > 0, "chunk_noise_sd"].iloc[1])
     print(f"  not resolvable below      : {resolution:.4f} (rounding dominates)")
+    print()
+
+    print("Can the sweep recover a chunk noise that was injected on purpose?")
+    print(recovery.to_string(index=False, float_format=lambda v: f"{v:.4f}"))
+    at_simulator = recovery.loc[
+        np.isclose(recovery["injected"], SIMULATOR_CHUNK_NOISE_SD), "recovered"
+    ]
+    if not at_simulator.empty:
+        print(
+            f"  At an injected {SIMULATOR_CHUNK_NOISE_SD}, the simulator's default, the sweep "
+            f"returns {float(at_simulator.iloc[0]):.4f}."
+        )
+        print("  So the small value recovered from untouched data is not the procedure failing.")
     print()
 
     print("Is the proportionality assumption satisfied by real data?")

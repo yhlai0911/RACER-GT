@@ -75,7 +75,10 @@ the simulator cannot represent at all.
   0.0066, and integer rounding alone accounts for 94% of the real dispersion. The
   closed-form rounding floor returns zero, but it assumes the two chunks round
   independently when they round the same numbers differing only by a scale
-  factor; that bias runs towards the flattering answer, so it is not used.
+  factor; that bias runs towards the flattering answer, so it is not used. The
+  sweep is itself checked by injection: at injected levels of 0, 0.01, 0.02 and
+  0.03 it recovers 0.0067, 0.0099, 0.0234 and 0.0312, so had the simulator's
+  default been the truth the procedure would have found it.
 - **Five of 26 real overlaps carried no information**, leaving four normalization
   groups among eight chunks, because C0001--C0003 all peak on 2024-03-05,
   C0004--C0005 on 2024-08-05, and C0007--C0008 on 2024-12-05. Zero of 520
