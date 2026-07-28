@@ -937,6 +937,14 @@ than the simulator's default. Below about $0.005$ the curve is flat within Monte
 Carlo error --- rounding dominates and the parameter is not identified there ---
 but $0.03$ produces $2.47$ times the observed dispersion and is firmly excluded.
 
+The sweep itself is checked the same way the diagnostics are in \cref{rem:power},
+by giving it something to find. Injecting a known disturbance into the real
+chunks, renormalizing the way Trends does, and rerunning recovers $0.0067$,
+$0.0099$, $0.0234$ and $0.0312$ at injected levels of $0$, $0.01$, $0.02$ and
+$0.03$. The last is what matters: had the simulator's default been the truth, the
+procedure would have returned about $0.03$ rather than the small value it returns
+on untouched data, so the gap is not the estimator failing.
+
 This \emph{strengthens} rather than undermines \cref{sec:calexp}. That comparison
 was run in a regime where calibration noise was several times too large, and even
 in that F1-friendly regime the global graph secured no detectable accuracy
