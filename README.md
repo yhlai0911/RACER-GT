@@ -176,8 +176,11 @@ chunks). Three things came out of it:
   is the effective resistance to the reference chunk, and a spanning path is
   resistances in series. Rayleigh's monotonicity law then makes the graph *never
   worse*, and the margin is computable from a chunk design before any data is
-  collected. On this one-year design the reduction is 9.1x but the terminal error
-  is 0.40% either way; at 15 years with a 15-day step it is 2.79% against 0.23%.
+  collected. On this one-year design the measured reduction is 9.1x and the
+  terminal error is 0.40% either way. Extrapolating to 15 years with a 15-day step
+  gives 2.79% against 0.23% — a prediction, not a measurement, from one keyword and
+  one pull, and the manuscript states which of its assumptions that same year
+  contradicts.
 
 What real data did confirm is that the proportionality model holds: across 45
 testable triangles the median cycle-closure error is 0.0018 log points, and no
