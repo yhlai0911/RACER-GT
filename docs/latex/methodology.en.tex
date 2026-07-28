@@ -1714,7 +1714,7 @@ Series & Sampled & Normalized & Retro.\ change & Recomputed & Applies\\
 \midrule
 Google Trends (\textbf{measured}) & yes & per request & yes & yes & yes\\
 Baidu Index, Naver DataLab & yes & per request & yes & yes & yes\\
-Policy-uncertainty indices from news counts & no & to a base & likely & yes & yes\\
+Policy-uncertainty indices from news counts & no & to a base & \textbf{no}$^\dagger$ & yes & partly\\
 Mobility indices vs.\ a base period & no & to a base & yes & yes & partly\\
 Vendor sentiment and foot-traffic panels & panel & varies & yes & yes & partly\\
 \midrule
@@ -1723,6 +1723,8 @@ Composite sentiment gauges from market inputs & no & to $[0,100]$ & no & yes & n
 Volatility indices with a published formula & no & no & no & yes & no\\
 \bottomrule
 \end{tabularx}
+\raggedright\footnotesize
+$^\dagger$Measured, not assumed. See the text below.
 \end{table}
 
 The two excluded rows matter more than the included ones. A composite gauge whose
@@ -1738,10 +1740,30 @@ News-count uncertainty indices are the closest structural analogue, and the
 correspondence is item by item: the article total in the denominator plays the
 role of the window maximum, changes in which outlets a corpus covers play the role
 of changes in Google's sampling, and the standardization base plays the role of
-the baseline period. Whether their published history in fact moves when a corpus
-is updated is not established here. It is testable by exactly the procedure this
-paper describes --- retrieve the same historical span on different dates and
-compare --- and that test does not require access to any restricted interface.
+the baseline period. An earlier draft of this section marked their retrospective
+change as likely on that basis. It was tested rather than left as an inference,
+using an archived copy of a publisher's own file as a second retrieval date, and
+the inference was wrong.
+
+Over the 416 months both vintages cover, excluding the archived vintage's
+unsettled tail, exactly one month differs by more than $10^{-6}$ in relative terms
+--- the sixth month before the archived retrieval, which is a normal settling lag.
+Every other difference lies below the single-precision floor at which the archived
+file stores its numbers, so it is storage format rather than revision. Published
+history is stable, and the framework's retrospective-change criterion does not
+apply.
+
+What did change is which series the file presents. In the archived vintage the
+first sheet is named for the main index and its first numeric column is the
+three-component measure; in the current one that sheet is named Legacy and the
+first numeric column of the leading sheet is the news-based measure. The coverage
+also extends backwards by more than eighty years. A researcher who opened the file
+and took the first numeric column would have obtained different series at the two
+dates, from the same publisher under the same filename. That is a reproducibility
+problem, and a serious one, but it is a change of identity rather than of
+measurement, so it is outside what this framework treats. Recording it here is the
+point of testing rather than asserting: the analogy held on two criteria and
+failed on the one it was invoked for.
 
 \subsection{Relation to real-time data analysis}\label{sec:realtimedata}
 
