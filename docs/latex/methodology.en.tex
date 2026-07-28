@@ -842,7 +842,7 @@ Normalization groups & 4 (among 8 chunks)\\
 Median triangle closure error & 0.001783 log points\\
 Maximum triangle closure error & 0.011769 log points (1.184\% scale error)\\
 Overlaps with drift $p<0.05$ & 1 / 21 (1.05 expected by chance)\\
-Largest residual mis-scaling & $-0.032\%$ (all $|t|<0.6$)\\
+Largest residual mis-scaling & $-0.032\%$ \emph{(no power; see \cref{rem:power})}\\
 \bottomrule
 \end{tabular}
 \end{table}
@@ -853,9 +853,46 @@ $d_{ij}+d_{jk}=d_{ik}$ for any three mutually overlapping chunks, while a
 spanning path uses only the edges it walks and can neither see nor report a
 violation. Across 45 triangles the median closure error is $0.0018$ log points
 and the largest is $0.0118$, a $1.18\%$ scale error. Only 1 of 21 informative
-overlaps shows drift at $p<0.05$, against $1.05$ expected by chance. After
-calibration no chunk deviates significantly from the reconstructed series, the
-largest being $-0.032\%$. Real data does not refute the proportionality model.
+overlaps shows drift at $p<0.05$, against $1.05$ expected by chance.
+
+\begin{remark}[What these diagnostics can and cannot detect]\label{rem:power}
+A diagnostic that passes is worth nothing until it is shown capable of failing.
+Injecting a known perturbation into one chunk and re-running gives each test a
+minimum detectable effect.
+
+\begin{table}[H]
+\centering
+\small
+\caption{Response of each diagnostic to a known perturbation of chunk C0005.
+Baseline maximum closure error is $0.0118$; baseline drift count is 1 of 21.}
+\label{tab:power}
+\begin{tabular}{lccc}
+\toprule
+Perturbation & Max closure error & Drift $p<0.05$ & Per-chunk deviation\\
+\midrule
+Uniform rescale, any size & $0.0118$ (none) & 1 (none) & none\\
+Trend, $2\%$ per 100 days & $0.0232$ & 7 of 22 & none\\
+Nonlinear, $2\%$ & $0.0118$ (none) & 5 of 22 & none\\
+Nonlinear, $5\%$ & $0.0212$ & 5 of 22 & none\\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\textbf{The per-chunk deviation test has exactly zero power and is reported only
+to say so.} Multiplying a chunk by a constant is absorbed entirely into
+$\hat\ell_j$, leaving $Y_{jt}\exp(-\hat\ell_j)$ unchanged, so injected errors of
+$2\%$ and $20\%$ return the same number to the digit. That is not a weakness of
+the estimator --- a uniform rescale is the parameter, not a violation --- but it
+means the $-0.032\%$ in \cref{tab:realdata} is evidence of nothing.
+
+Cycle closure and the drift test do have power, and against violations that a
+scale cannot absorb. The drift test is the more sensitive of the two, catching a
+$2\%$ nonlinear distortion that closure misses. Reading the baseline against the
+table: the observed maximum closure error is half what a $2\%$-per-100-days trend
+would produce, so \textbf{violations of that size or larger are excluded}, which
+is the strongest statement this data supports. It is not the same as the model
+being correct.
+\end{remark}
 
 \subsubsection{The simulator overstates chunk noise by about 4.5 times}
 

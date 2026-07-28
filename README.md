@@ -182,9 +182,13 @@ chunks). Three things came out of it:
   one pull, and the manuscript states which of its assumptions that same year
   contradicts.
 
-What real data did confirm is that the proportionality model holds: across 45
-testable triangles the median cycle-closure error is 0.0018 log points, and no
-chunk is left detectably mis-scaled (largest −0.032%).
+Real data did not refute the proportionality model, within a detectable effect
+that is now stated rather than assumed: across 45 testable triangles the median
+cycle-closure error is 0.0018 log points, and injecting a 2%-per-100-days trend
+into one chunk doubles the largest closure error, so violations that size or
+larger are excluded. A fourth check — per-chunk deviation from the reconstructed
+series — turned out to have *exactly zero* power, because a uniform rescale is
+absorbed into the estimated scale by construction. It is reported only to say so.
 
 **Only the calibration stage has been tested this way.** The data is a single
 pull, so consensus weighting, duplicate diagnosis, G-theory, and benchmarking

@@ -17,7 +17,7 @@ the simulator cannot represent at all.
   censoring markers rather than zeros and are converted explicitly and counted.
 - `examples/run_real_data_calibration.py` and the analysis behind the new
   manuscript section: cycle closure over every triangle, within-overlap drift
-  tests, per-chunk residual mis-scaling, an effective-resistance comparison
+  tests, an effective-resistance comparison
   against the spanning path a sequential stitch would walk, and a parametric
   bootstrap that recovers `chunk_noise_sd` by reproducing the Trends
   normalization rule.
@@ -29,6 +29,9 @@ the simulator cannot represent at all.
 - `tests/test_calibration_variance.py`, which pins the reported variance against
   a Laplacian pseudo-inverse computed outside the estimator, checks Rayleigh
   monotonicity, and fails against the pre-1.4.0 standard error.
+- `tests/test_diagnostic_power.py`, which injects known perturbations to establish
+  what each calibration diagnostic can detect, and pins the one that cannot
+  detect anything.
 - `n_zero_dispersion_edges`, `n_informative_edges` and `n_scale_groups` in
   `CalibrationResult.diagnostics`. Trends divides each chunk by its own window
   maximum, so two windows containing the same peak day come back identical
@@ -78,10 +81,21 @@ the simulator cannot represent at all.
   C0004--C0005 on 2024-08-05, and C0007--C0008 on 2024-12-05. Zero of 520
   simulated edges are degenerate. The rate depends on a series' peak structure
   and is not extrapolated from one keyword.
-- **The proportionality model survives.** Across 45 triangles the median cycle
-  closure error is 0.0018 log points and the largest is 0.0118. One of 21
-  informative overlaps drifts at p < 0.05 against 1.05 expected. No chunk is left
-  detectably mis-scaled; the largest deviation is −0.032%.
+- **The proportionality model is not refuted, within a stated detectable effect.**
+  Across 45 triangles the median cycle closure error is 0.0018 log points and the
+  largest is 0.0118; one of 21 informative overlaps drifts at p < 0.05 against
+  1.05 expected. Injecting known perturbations gives those numbers a scale: a
+  trend of 2% per 100 days doubles the closure error and lifts the drift count to
+  7 of 22, so violations of that size or larger are excluded. That is the
+  strongest statement this data supports, and it is not the same as the model
+  being correct.
+- **One diagnostic had exactly zero power and was being reported as evidence.**
+  Multiplying a chunk by a constant is absorbed entirely into its estimated log
+  scale, so per-chunk deviation from the reconstructed series returns the same
+  number to the digit for an injected error of 2% and of 20%. A uniform rescale
+  is the parameter rather than a violation, so this is correct behaviour, but the
+  −0.032% previously offered as evidence of fit is evidence of nothing. Both
+  manuscripts now say so, and `tests/test_diagnostic_power.py` pins it.
 - **Failure mode F1 is now a theorem rather than an argument.** Graph WLS weights
   are edge precisions, so the covariance of the solution inverts a weighted graph
   Laplacian and the variance of a recovered log scale is the effective resistance
