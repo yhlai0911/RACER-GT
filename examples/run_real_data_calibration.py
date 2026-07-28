@@ -16,11 +16,14 @@ The two measurements the simulation could make are not available here.
   consensus estimator all need repeated collection across days and environments.
   This script does not touch them and reports nothing about them.
 
-One year of chunks is also far too small to test failure mode F1 on its own
-terms, and the script says so with a number rather than a hedge: it estimates the
-per-join error from the data and reports how many joins would be needed before
-accumulation reached one percent. A design that cannot accumulate a percent
-cannot be evidence about a mechanism that operates by accumulation.
+Failure mode F1 is a claim about a variance, so comparing the two methods' point
+estimates on one pull cannot test it at any sample size. No test is needed: the
+graph WLS weights are edge precisions, which makes the variance of a recovered
+log scale the effective resistance to the reference chunk, and a spanning path is
+resistances in series. The script reports that ratio for this design and for the
+designs a study might choose, at the dispersion actually measured. One year gives
+a 9-fold variance reduction over a spanning path and a terminal error of 0.40%
+either way; fifteen years at the recommended step gives 2.79% against 0.23%.
 
 What this data does settle, decisively, is whether the simulator describes real
 chunk overlaps. Overlapping chunks are assumed proportional up to a constant, the
@@ -256,10 +259,17 @@ def chain_accumulation(edges: pd.DataFrame, order: list[str]) -> dict:
 
     F1 operates by accumulation, so a design is only evidence about F1 if it can
     accumulate something. The chain's terminal error variance is the sum of the
-    variances of the joins it walks, and a join whose overlap has no dispersion
-    contributes nothing. Inverting that sum gives the number of informative joins
-    a study would need before the accumulated error reached a stated size, which
-    is the honest way to report what one year of chunks can and cannot show.
+    variances of the joins it walks --- its effective resistance, since a path is
+    resistances in series --- and a join whose overlap has no dispersion
+    contributes nothing.
+
+    An earlier version of this script inverted that sum to report how many joins
+    a study would need before the accumulated error reached a stated size. The
+    conversion from joins to calendar years relied on a degeneracy rate estimated
+    from one keyword, which the data refuted, and the resulting figures were
+    wrong by more than an order of magnitude. The effective-resistance
+    calculation in ``design_comparison`` needs no such rate: it depends only on
+    which windows overlap.
     """
 
     lookup = {}
@@ -287,20 +297,65 @@ def chain_accumulation(edges: pd.DataFrame, order: list[str]) -> dict:
             }
         )
 
-    per_join = float(np.sqrt(np.median(edges.loc[edges["robust_scale"] > 0, "variance"])))
     terminal_sd = float(np.sqrt(total_variance))
-    needed = {
-        pct: float((np.log1p(pct / 100.0) / per_join) ** 2) if per_join > 0 else np.inf
-        for pct in (1, 5, 10)
-    }
     return {
         "joins": pd.DataFrame(joins),
         "n_joins": len(joins),
         "n_informative_joins": informative,
         "terminal_sd_log": terminal_sd,
         "terminal_pct": 100.0 * (np.exp(terminal_sd) - 1.0),
-        "median_informative_join_se": per_join,
-        "informative_joins_for_pct": needed,
+    }
+
+
+def design_comparison(
+    span_days: int, window: int, step: int, sigma: float, min_overlap: int = MIN_OVERLAP_DAYS
+) -> dict:
+    """Calibration error a chunk design implies, before any data is collected.
+
+    The variance of a recovered log scale is the effective resistance to the
+    reference when each overlap is a conductance equal to its precision. With
+    ``Var(edge) = sigma^2 / overlap_days`` the dispersion cancels from the ratio
+    of path to graph, so how much the global solve is worth depends only on which
+    windows overlap. That is what makes this a design tool rather than a
+    post-hoc diagnostic.
+    """
+
+    starts = list(range(0, span_days - window + 1, step))
+    if starts[-1] + window < span_days:
+        starts.append(span_days - window)
+    n = len(starts)
+    edges = [
+        (a, b, float((starts[a] + window) - starts[b]))
+        for a in range(n)
+        for b in range(a + 1, n)
+        if (starts[a] + window) - starts[b] >= min_overlap
+    ]
+
+    def terminal_resistance(subset: list[tuple[int, int, float]]) -> float:
+        laplacian = np.zeros((n, n))
+        for i, j, conductance in subset:
+            laplacian[i, i] += conductance
+            laplacian[j, j] += conductance
+            laplacian[i, j] -= conductance
+            laplacian[j, i] -= conductance
+        if np.linalg.matrix_rank(laplacian) < n - 1:
+            return float("nan")
+        pseudo = np.linalg.pinv(laplacian)
+        contrast = np.zeros(n)
+        contrast[n - 1] = 1.0
+        contrast[0] = -1.0
+        return float(contrast @ pseudo @ contrast)
+
+    graph = terminal_resistance(edges)
+    path = terminal_resistance([e for e in edges if e[1] == e[0] + 1])
+    return {
+        "n_chunks": n,
+        "n_edges": len(edges),
+        "graph_resistance": graph,
+        "path_resistance": path,
+        "reduction": path / graph if graph > 0 else float("nan"),
+        "graph_pct": 100.0 * (np.exp(sigma * np.sqrt(graph)) - 1.0),
+        "path_pct": 100.0 * (np.exp(sigma * np.sqrt(path)) - 1.0),
     }
 
 
@@ -546,20 +601,47 @@ def main() -> None:
     print(f"  Spearman(position, |difference|)      : {rho:.3f} (p = {p_rho:.3f})")
     print()
 
+    observed = chunk_noise["median_observed_sd"]
     print("Can this design accumulate anything? F1 works only by accumulation")
     print(accumulation["joins"].to_string(index=False, float_format=lambda v: f"{v:.6f}"))
     print(
         f"  informative joins         : {accumulation['n_informative_joins']} "
         f"of {accumulation['n_joins']}"
     )
-    print(f"  median informative join se: {accumulation['median_informative_join_se']:.6f}")
     print(
         f"  terminal accumulated sd   : {accumulation['terminal_sd_log']:.6f} log points "
         f"= {accumulation['terminal_pct']:.3f}%"
     )
-    for pct, count in accumulation["informative_joins_for_pct"].items():
-        print(f"  informative joins for {pct:2d}% : {count:,.0f}")
-    print("  One year of chunks cannot test a mechanism that needs this many joins.")
+    print(
+        f"  graph max Var(log scale)  : {graph.diagnostics['max_log_scale_variance']:.6e}"
+    )
+    print(
+        f"  path  max Var(log scale)  : "
+        f"{graph.diagnostics['sequential_max_log_scale_variance']:.6e}"
+    )
+    print(
+        f"  variance reduction        : "
+        f"{graph.diagnostics['calibration_variance_reduction']:.2f}x"
+    )
+    print("  The mechanism is operating. Testing it by comparing two point estimates")
+    print("  would not show that: a variance cannot be estimated from one realization.")
+    print()
+
+    print("What the design implies, before any data is collected")
+    print(f"{'design':28s} {'chunks':>7s} {'reduction':>10s} {'sequential':>11s} {'graph':>8s}")
+    for label, span, window, step in (
+        ("1 year, 180/30 (this data)", 366, 180, 30),
+        ("5 years, 180/30", 1826, 180, 30),
+        ("15 years, 180/30", 5478, 180, 30),
+        ("15 years, 180/15 (recommended)", 5478, 180, 15),
+    ):
+        row = design_comparison(span, window, step, observed)
+        print(
+            f"{label:28s} {row['n_chunks']:7d} {row['reduction']:9.1f}x "
+            f"{row['path_pct']:10.2f}% {row['graph_pct']:7.2f}%"
+        )
+    print("  Terminal scale error at the observed dispersion. The ratio depends only")
+    print("  on which windows overlap, so it is a design choice, not a data outcome.")
     print()
 
     print("What is the real value of SimulationSettings.chunk_noise_sd?")
@@ -575,7 +657,6 @@ def main() -> None:
         print("  the assumption with the generating mechanism.")
     print()
 
-    observed = chunk_noise["median_observed_sd"]
     print("Chunk noise recovered by reproducing the reported chunks")
     print(f"  observed median dispersion: {observed:.6f}")
     print(profile.to_string(index=False, float_format=lambda v: f"{v:.6f}"))

@@ -171,10 +171,13 @@ chunks). Three things came out of it:
   information, leaving 4 normalization groups among 8 chunks. The simulator
   cannot produce this; 1.4.0 reports it as `n_zero_dispersion_edges` and
   `n_scale_groups` without changing any estimate.
-- **One year of chunks has no power against error accumulation, and that is
-  computable.** This design can accumulate at most 0.270%; reaching 5% would take
-  about 574 informative joins. The mechanism is real and immaterial at any
-  feasible scale.
+- **Sequential stitching's error accumulation is now a theorem, not folklore.**
+  Graph WLS weights are edge precisions, so the variance of a recovered log scale
+  is the effective resistance to the reference chunk, and a spanning path is
+  resistances in series. Rayleigh's monotonicity law then makes the graph *never
+  worse*, and the margin is computable from a chunk design before any data is
+  collected. On this one-year design the reduction is 9.1x but the terminal error
+  is 0.40% either way; at 15 years with a 15-day step it is 2.79% against 0.23%.
 
 What real data did confirm is that the proportionality model holds: across 45
 testable triangles the median cycle-closure error is 0.0018 log points, and no
