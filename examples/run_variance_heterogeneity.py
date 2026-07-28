@@ -10,12 +10,23 @@ to the smallest retrieval-noise standard deviation, spread geometrically with
 geometric mean one, so the noise budget moves between pulls rather than growing.
 A ladder of 1.0 reproduces the default exactly.
 
-The last scenario is a control, not a result. It restores homogeneous variances
-and introduces correlation heterogeneity instead, where the covariance-adjusted
-estimator is known to lose. A comparison that cannot show RACER-GT losing is not
-evidence that it wins, so the control runs on every invocation.
+The last three scenarios are controls, not results, and they run on every
+invocation.
+
+The correlation-only row restores homogeneous variances and introduces correlation
+heterogeneity instead, where the covariance-adjusted estimator is known to lose. A
+comparison that cannot show RACER-GT losing is not evidence that it wins.
+
+The two additive rows put the same disturbance on the level scale. Trends
+normalizes each window to its own maximum, so retrieval error is proportional and
+the multiplicative default is the right model -- but that is an argument, and it
+happens to favour the estimator under test, so it gets measured. Above a ladder of
+about 5 the level-scale draw crosses zero and the resulting clip is a nonlinearity
+the multiplicative case does not have; the simulator warns, and the count is
+reported so a clipped row is never read as a clean control.
 """
 
+import warnings
 from datetime import date
 from pathlib import Path
 
@@ -37,6 +48,22 @@ SCENARIOS = [
         "control_correlation_only",
         "homogeneous variances, shared cache disturbance",
         {"cache_cluster_fraction": 0.33, "cache_cluster_weight": 0.60},
+    ),
+    # Second control. Trends normalizes each window to its own maximum, so retrieval
+    # error is proportional and the default model is multiplicative -- an argument
+    # that happens to favour the estimator being tested. These put the same
+    # disturbance on the level scale. Ladder 5 is the clean comparison: above it the
+    # level-scale draw crosses zero and the clip that follows is a nonlinearity the
+    # multiplicative case does not have, which the simulator warns about.
+    (
+        "additive_ladder_5",
+        "control: level-scale noise, sd ratio 5",
+        {"retrieval_noise_ladder": 5.0, "additive_retrieval_noise": True},
+    ),
+    (
+        "additive_ladder_10",
+        "control: level-scale noise, sd ratio 10 (clips in some replications)",
+        {"retrieval_noise_ladder": 10.0, "additive_retrieval_noise": True},
     ),
 ]
 
@@ -65,12 +92,15 @@ config.decision.max_benchmark_standardized_rmse = 10.0
 
 rows = []
 for name, description, overrides in SCENARIOS:
-    result = run_monte_carlo(
-        config,
-        replications=REPLICATIONS,
-        first_seed=FIRST_SEED,
-        settings=SimulationSettings(exact_duplicate_fraction=0.10, **overrides),
-    )
+    with warnings.catch_warnings(record=True) as caught:
+        warnings.simplefilter("always")
+        result = run_monte_carlo(
+            config,
+            replications=REPLICATIONS,
+            first_seed=FIRST_SEED,
+            settings=SimulationSettings(exact_duplicate_fraction=0.10, **overrides),
+        )
+        clipped = sum(1 for entry in caught if issubclass(entry.category, RuntimeWarning))
     summary = result.summary.set_index("estimator")
     paired = result.paired_tests
     versus_mean = paired[
@@ -89,6 +119,7 @@ for name, description, overrides in SCENARIOS:
             "advantage": float(versus_mean["mean_rmse_difference"]),
             "t_p_value": float(versus_mean["t_p_value"]),
             "wins": int(versus_mean["wins"]),
+            "replications_that_clipped": clipped,
             "n_replications": REPLICATIONS,
         }
     )
@@ -109,6 +140,7 @@ print(
             "advantage",
             "t_p_value",
             "wins",
+            "replications_that_clipped",
         ]
     ].to_string(index=False)
 )

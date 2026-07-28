@@ -1262,6 +1262,20 @@ procedure is run on a design where it is known to lose, and it reports a
 significant loss. The advantage above is therefore a property of the scenario and
 not of the scoring.
 
+One assumption in \cref{tab:varhet} runs in the direction that flatters the
+estimator and so is measured rather than argued. Trends normalizes each window to
+its own maximum, which makes retrieval error proportional, so the disturbance is
+multiplicative; a multiplicative error is larger in absolute terms on high days,
+and it is not obvious \emph{a priori} that this does not do the work. Repeating
+the ladder with the same disturbance on the level scale gives an advantage of
+$0.8534$ at a variance ratio of 25 against $0.9120$ multiplicative, and $1.7374$
+at 100 against $1.8554$, in both cases winning all 20 replications. The
+level-scale control is uniformly about six percent smaller and identical in sign
+and significance, so the result is not an artefact of the error scale. Above a
+ladder of about five the level-scale draw crosses zero; the clip that follows is a
+nonlinearity the multiplicative case does not have, so the simulator warns and the
+count of affected replications is reported. The ratio-25 comparison clips in none.
+
 The practical recommendation of \cref{sec:monte-carlo} accordingly needs its
 condition attached rather than withdrawn: covariance adjustment brings no
 detectable improvement \emph{when the pulls are homogeneous in variance}, which is
