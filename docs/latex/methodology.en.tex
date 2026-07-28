@@ -1684,6 +1684,102 @@ $\Omega_u$, \eqref{eq:rc-ols} corrects attenuation bias.
 \noindent None of these results establishes unbiasedness with respect to
 Google's absolute search counts, and none is claimed to hold unconditionally.
 
+\subsection{What kind of measurement this applies to}\label{sec:appliesto}
+
+Nothing above is specific to Google Trends. What the framework requires is that
+the measurement be \emph{platform-mediated}: produced by an intermediary the
+analyst does not control, which can change, and which does not publish the detail
+of what it did. Four questions decide whether a series qualifies, and they are
+separate questions rather than one.
+
+\begin{enumerate}
+\item Is the value a \emph{sample}, so that retrieving twice can differ?
+\item Is there normalization \emph{within a request or sample}, and can its base
+move?
+\item Can the source change \emph{retrospectively}, so that one historical date
+takes different values at different retrieval dates?
+\item When the construction method changes, is history \emph{recomputed}?
+\end{enumerate}
+
+\begin{table}[H]
+\centering
+\small
+\caption{Which series the framework addresses. \textbf{Only the first row has been
+tested here}; the others are placed by structural correspondence, not by
+measurement, and none of them is evidence for the framework.}
+\label{tab:appliesto}
+\begin{tabularx}{\textwidth}{Xcccc c}
+\toprule
+Series & Sampled & Normalized & Retro.\ change & Recomputed & Applies\\
+\midrule
+Google Trends (\textbf{measured}) & yes & per request & yes & yes & yes\\
+Baidu Index, Naver DataLab & yes & per request & yes & yes & yes\\
+Policy-uncertainty indices from news counts & no & to a base & likely & yes & yes\\
+Mobility indices vs.\ a base period & no & to a base & yes & yes & partly\\
+Vendor sentiment and foot-traffic panels & panel & varies & yes & yes & partly\\
+\midrule
+\multicolumn{6}{l}{\emph{Outside the framework, and worth saying so}}\\
+Composite sentiment gauges from market inputs & no & to $[0,100]$ & no & yes & no\\
+Volatility indices with a published formula & no & no & no & yes & no\\
+\bottomrule
+\end{tabularx}
+\end{table}
+
+The two excluded rows matter more than the included ones. A composite gauge whose
+inputs are observable market quantities --- momentum, breadth, option ratios,
+credit spreads --- is not sampled and does not change retrospectively; where it is
+hard to work with, the difficulty is undisclosed construction, which is a
+reproducibility problem needing different tools. A volatility index with a
+published formula can be recomputed by anyone from option prices. Claiming this
+framework for them would be refuted immediately, and excluding them is what gives
+the inclusion criteria content.
+
+News-count uncertainty indices are the closest structural analogue, and the
+correspondence is item by item: the article total in the denominator plays the
+role of the window maximum, changes in which outlets a corpus covers play the role
+of changes in Google's sampling, and the standardization base plays the role of
+the baseline period. Whether their published history in fact moves when a corpus
+is updated is not established here. It is testable by exactly the procedure this
+paper describes --- retrieve the same historical span on different dates and
+compare --- and that test does not require access to any restricted interface.
+
+\subsection{Relation to real-time data analysis}\label{sec:realtimedata}
+
+The idea that a retrieval date is part of a dataset is not new to economics. The
+real-time literature \citep{CroushoreStark2001} established that a macroeconomic
+series is a sequence of vintages rather than a single object, that the same
+quarter takes different values in different vintages, and that using final revised
+values imparts look-ahead bias to studies of what was knowable at the time.
+
+The framework here is the extension of that idea to a case where its central
+assumption fails.
+
+\begin{table}[H]
+\centering
+\small
+\caption{Why vintage bookkeeping is not sufficient for platform-mediated series.}
+\label{tab:vintage}
+\begin{tabularx}{\textwidth}{lXX}
+\toprule
+ & Real-time macro data & Platform-mediated measurement\\
+\midrule
+Nature of change & Revision: deterministic update & Sampling: stochastic\\
+Is there a final value & Yes; revisions converge & No\\
+Correct practice & Use the vintage available then & Vintage is not enough: two
+retrievals \emph{within} a vintage differ\\
+Source of uncertainty & Estimable from revision history & Requires repeated
+retrieval by design\\
+\bottomrule
+\end{tabularx}
+\end{table}
+
+Recording the retrieval date, which is what a vintage does, is necessary and not
+sufficient here. Because there is no value the series converges to, the
+uncertainty cannot be read off a revision history, and the only way to quantify it
+is to retrieve repeatedly under a design fixed in advance. That is the whole
+content of \cref{sec:design}, and it is why this paper is a repeated-measurement
+protocol rather than an archiving convention.
+
 \subsection{Known limitations}
 
 \begin{itemize}
@@ -1899,6 +1995,10 @@ generated regressors. \textit{International Economic Review}, 25(1), 221--247.
 \bibitem[Google Search Central(2025)]{GoogleAPI2025}
 Google Search Central (2025). Introducing the Google Trends API (alpha): A new
 way to access Trends data. Published 24 July 2025.
+
+\bibitem[Croushore and Stark(2001)]{CroushoreStark2001}
+Croushore, D. and Stark, T. (2001). A real-time data set for macroeconomists.
+\textit{Journal of Econometrics}, 105(1), 111--130.
 
 \bibitem[Google Trends Help(n.d.)]{GoogleFAQ}
 Google Trends Help (n.d.). FAQ about Google Trends data.
