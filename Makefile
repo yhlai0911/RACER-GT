@@ -1,4 +1,4 @@
-.PHONY: test lint build clean simulate docs checksums all
+.PHONY: test lint build clean simulate docs checksums check-facts all
 
 test:
 	PYTHONPATH=src pytest -q
@@ -26,11 +26,13 @@ checksums:
 	  | xargs -0 shasum -a 256 > SHA256SUMS_PROJECT.txt
 	@echo "wrote SHA256SUMS_PROJECT.txt ($$(wc -l < SHA256SUMS_PROJECT.txt | tr -d ' ') files)"
 
+# Single source of truth for repeated numbers and retracted claims. Exits non-zero
+# when a superseded claim survives outside the files that document the correction.
+check-facts:
+	python scripts/check_facts.py
+
 all: lint test docs build checksums
 
 clean:
 	rm -rf build dist .pytest_cache src/*.egg-info src/racergt.egg-info
 	find . -type d -name __pycache__ -prune -exec rm -rf {} +
-
-check-facts:
-	$(PY) scripts/check_facts.py
