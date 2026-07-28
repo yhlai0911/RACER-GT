@@ -1334,6 +1334,32 @@ $N_{\text{spec}}$ bias just described. That one is conservative: it understates
 information and errs toward rejecting a batch. These three err the other way,
 making the series look more precise than the design supports.
 
+A second per-day error is available and is now reported beside it. The calibration
+stage of \cref{sec:calibration} produces, for every pull and every date, a standard
+error built from the disagreement among the chunks covering that date, converted to
+the level scale by the delta method. It is genuinely per-day and it varies with the
+level: a date whose index value is small has a larger relative error, which is what
+integer rounding to the 0--100 scale implies. On the real series of
+\cref{sec:realdata} the ratio of this error to the value tracks the rounding
+prediction $1/(\sqrt{12}\,v)$ to within 3 to 12 percent across value ranges.
+
+The two are reported side by side and not summed. $\hat{\Sig}$ is estimated from
+residuals that already contain calibration error, so adding them would double
+count. What the calibration error provides is an independent lower bound: it comes
+from within-day chunk disagreement, a derivation sharing nothing with the residual
+covariance, so dates where it exceeds the consensus standard error are dates on
+which the residual-based estimate is too small. The share of such dates is
+reported. Propagation through the consensus weights assumes the calibration errors
+are independent across pulls; \cref{sec:realdata} shows chunks within one
+collection day are rescalings of a single served sample, and whether that extends
+across pulls is not known, so the assumption travels with the result as a flag.
+
+The division of labour is that the two quantities measure different things. The
+calibration error is within one acquisition and is dominated by rounding and chunk
+disagreement; the consensus standard error is across acquisitions and carries
+whatever sampling variation repeated retrieval exposes. Only the first is available
+without repeated collection.
+
 This does not retract the claim that the framework supplies per-day uncertainty
 where the alternatives supply none; that claim stands, and it is the substance of
 \cref{sec:eiv}. What it limits is the weight that can be put on the

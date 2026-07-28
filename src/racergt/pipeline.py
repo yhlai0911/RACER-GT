@@ -150,12 +150,16 @@ class RacerGTPipeline:
             baseline_start=self.config.query.baseline_start,
             baseline_end=self.config.query.baseline_end,
         )
+        # The calibration stage already produced a per-day standard error for every
+        # pull. Until now it was written to disk and dropped; passing it here lets the
+        # consensus report an independently derived lower bound alongside its own.
         consensus = fit_gls_consensus(
             matrix,
             self.config.consensus,
             metadata=metadata,
             baseline_start=self.config.query.baseline_start,
             baseline_end=self.config.query.baseline_end,
+            calibration_se=wide_pull_matrix(complete, value_col="calibration_se"),
         )
         gstudies = run_all_gstudies(complete, self.config.gstudy)
         reliability = assess_reliability(
