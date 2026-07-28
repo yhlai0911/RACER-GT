@@ -114,9 +114,9 @@ audit_raw_batch ──(可 raise)──▶ coerce_raw_chunks
 
 每個階段回傳自己的 dataclass（`CalibrationResult`、`DuplicateDiagnostics`、`ConsensusResult`、`GStudyResult`、`ReliabilityResult`、`BenchmarkResult`、`DecisionResult`），各自帶 `.save(dir)`。`PipelineResult.save()` 只是把它們派到子目錄並補寫 `summary.json`。新增輸出時遵循同一慣例：在該階段的 Result 上加 `save`，而不是在 pipeline 裡塞 `to_csv`。
 
-### ⚠️ decision.py 的隱性字串鍵契約
+### decision.py 的字串鍵契約
 
-`evaluate_batch()`（`decision.py`）用**字面字串**去讀上游各階段的 `diagnostics` / `summary` dict：
+`evaluate_batch()`（`decision.py`）以具名常數（`KEY_*`）讀取上游各階段的 `diagnostics` / `summary` dict：
 
 | 讀取來源 | 鍵 |
 |---|---|
@@ -128,7 +128,9 @@ audit_raw_batch ──(可 raise)──▶ coerce_raw_chunks
 | `reliability.summary` | `detection_fleiss_kappa`, `final_convergence_mae_100` |
 | `benchmark.diagnostics` | `benchmark_standardized_rmse` |
 
-**重新命名或移除其中任一鍵不會拋錯**——`.get()` 取到 `np.nan`，`_finite()` 判定為 false，該規則的 `passed` 變成 `None`，於是整批結果從 PASS 默默降級成 REVIEW。改動任何階段的 diagnostics 鍵時，務必同步檢查 `decision.py`，並跑 `test_pipeline.py` 確認 status 沒被意外改變。
+**移除或重新命名其中任一鍵會拋 `KeyError`，不是靜默降級。** 這一點在 commit `1c72851`（"remove three silent failure modes"）修正過：舊版用 `.get(key, nan)`，取不到就變 `NaN`、`_finite()` 判偽、規則 `passed=None`，整批從 PASS 默默降成 REVIEW。現在 `_require` 直接 raise，因為「鍵不存在」是接線錯誤，必須與「規則真的無法判定」區分開。2026-07-28 以五個鍵逐一實測確認。
+
+所以改動 diagnostics 鍵時**不需要**為靜默降級做防禦性檢查——測試會直接紅。但仍要跑 `test_pipeline.py`，因為改的若是鍵的**值**而非名稱，那才會安靜地改變 status。
 
 判定邏輯：任一 mandatory 規則 `False` → FAIL；任一 mandatory 規則 `None` → REVIEW；否則 PASS。`detection_reliability` 的 mandatory 旗標是動態的（僅當 `0 < zero_share < 1` 才強制）。
 
