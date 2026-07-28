@@ -48,7 +48,9 @@ make clean
 
 **Lint 是門檻**：`pyproject.toml` 明確鎖定規則集 `E,F,W,I,UP,B,C4,RUF`（刻意不依賴 ruff 預設值，因為預設會隨版本擴張而讓 CI 無故變紅）。目前全清。兩個 ignore 是刻意的且已在 pyproject 註明理由：`B008`（typer 需要在預設值呼叫 `Argument()`/`Option()`）、`report.py` 的 `W291`（Markdown 硬換行的兩個尾隨空白）。
 
-**建置文件**：`make docs`（等同 `python scripts/build_docs.py`）。需要 latexmk + XeLaTeX 與五個 Noto 字型家族（見 `docs/latex/_common.tex` 開頭）。macOS 以 brew cask 安裝；CI 以 apt 安裝，**中文版另需 `texlive-lang-chinese` 提供 `xeCJK.sty`**。
+**Makefile 的直譯器**：所有 target 用 `$(PYTHON)`，預設 `python`，**假設 venv 已啟用**。macOS 沒有裸 `python`，所以未啟用時要明確指定：`make PYTHON=.venv/bin/python <target>`。本檔其餘指令範例一律直接寫 `.venv/bin/python`，不經過 make。
+
+**建置文件**：`make docs`（等同 `.venv/bin/python scripts/build_docs.py`）。需要 latexmk + XeLaTeX 與五個 Noto 字型家族（見 `docs/latex/_common.tex` 開頭）。macOS 以 brew cask 安裝；CI 以 apt 安裝，**中文版另需 `texlive-lang-chinese` 提供 `xeCJK.sty`**。
 
 **改動檔案後**：跑 `make checksums` 重新產生 `SHA256SUMS_PROJECT.txt`，否則 `shasum -c` 會出現過期失敗。
 
