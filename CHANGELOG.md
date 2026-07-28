@@ -1,5 +1,97 @@
 # Changelog
 
+## 1.5.0 - 2026-07-28
+
+A construct is rarely one keyword, so the established practice is to build an
+index per term and take the first principal component. PCA assumes the inputs
+carry no measurement error, and Google Trends does. This release adds the factor
+stage that consumes the per-day standard error the consensus already produced,
+and — while writing its specification — found that the manuscripts never defined
+that standard error, although they cited it twice as something no alternative
+supplies.
+
+### Added
+
+- `racergt.factor` and the `racergt factor` subcommand. Given K series with their
+  per-day standard errors it subtracts the mean error covariance before the
+  eigendecomposition, so loadings are not attenuated by retrieval noise. It is
+  deliberately outside `RacerGTPipeline`: the pipeline coordinates one
+  `series_id` and a factor model spans K of them, and adding a config field would
+  change every existing protocol hash. `decision.py` is untouched, so no new
+  string-key contract and no change to acceptance semantics.
+- `pc1_weekday_f_statistic` and `pc1_autocorr_lag7`. PC1 captures whatever varies
+  most in common and GT series share large weekday and holiday effects, so the
+  first component may be the calendar rather than the construct. Both the
+  detection and its reverse control are tested, because a diagnostic that always
+  fires detects nothing.
+- `omega_source`, `omega_is_daily_variance`, `omega_clip_share` and
+  `omega_offdiagonal_assumed_zero`, so the provenance and the assumed structure
+  of the supplied error covariance travel with the result rather than living in a
+  docstring.
+- `n_factors_uncorrected_same_rule`, `n_factors_broken_stick` and
+  `eigenvalue_gap_ratio`, so a reader can see how much of the retained factor
+  count is the data and how much is the rule.
+- `tests/test_factor.py`, seventeen tests, of which two pin what the diagnostics
+  *cannot* do. Neither is a defect to be fixed later; both are limits of the
+  design and are recorded so the numbers are never read as evidence they held.
+
+### Changed
+
+- Both manuscripts define the per-day standard error, in the appendix as a
+  formula and in Stage 5 as a limitation. It is a conditional scale on cross-pull
+  dispersion — one global `sqrt(w' Sigma w)` times the day's median absolute
+  deviation relative to a typical day, that multiplier clipped to `[0.25, 4]` —
+  and not a per-day variance. Three independent features push it downward: the
+  upper clip binds exactly on the days uncertainty is largest; renormalizing
+  weights when pulls are missing never enters the variance, though concentrating
+  weight on fewer pulls raises it; and residuals taken about the pulls' own daily
+  median shrink the dispersion `Sigma` is estimated from. The direction is the
+  point. The spectral effective count's documented bias is conservative — it
+  understates information and errs toward rejecting a batch. These three err the
+  other way.
+- The two existing claims about conditional standard errors are cross-referenced
+  rather than rewritten. Both are right about direction; what is limited is the
+  weight the magnitude can carry.
+- Issues move to one file per ticket under `review/tickets/`, and
+  `docs/agents/issue-tracker.md` records the triage vocabulary and the three
+  standing rules so acceptance criteria stop being reinvented per ticket.
+
+### Results
+
+- **Understating Omega cannot be detected from the output alone.** Every
+  diagnostic is computed from the supplied Omega, so a uniformly small one
+  produces a self-consistent result. A panel with error 0.6 reporting 0.3, and an
+  honest panel with error 0.3, land in the same place on `measurement_error_share`
+  and on the PSD check. No threshold separates them. This is why the factor
+  model's claim is about the existence of measurement error, not its magnitude.
+- **Measurement error correlated across series is absorbed as a construct.**
+  Injecting a shared error of sd 0.50 alongside per-series error of sd 0.40 raises
+  the PC1 explained-variance ratio by 4.5 percentage points, from 0.801 to 0.846,
+  and no published diagnostic moves. This is structural rather than a defect:
+  common error is common variation, and a factor model exists to find common
+  variation. Separating them needs evidence about the collection design.
+- **The factor count holds as measurement error grows.** On a two-factor panel
+  with K=8 the retained count is 2 from a clean panel through an error share of
+  49%, with the eigenvalue gap ratio between 6.8 and 11.1. At an error share of
+  64% the corrected covariance loses positive semidefiniteness and the estimator
+  refuses to return a factor, which is the correct answer rather than a failure.
+
+### Fixed
+
+- `attenuation_ratio` compared loadings on the covariance scale, where a noisy
+  matrix mechanically has more variance to distribute, so the ratio came out
+  above one — the opposite sign to the effect it measures. On the correlation
+  scale it is 1.000 at zero measurement error and falls monotonically with it.
+  Nothing would have crashed; it reported a plausible 1.02.
+- The factor-count rule carried Kaiser's threshold of one across from the
+  uncorrected matrix. That one is not a constant: it is what "keep components
+  beating an average variable" evaluates to on a correlation matrix, whose
+  average eigenvalue is one. After subtracting the error covariance the trace is
+  lower, so the rule is restated as `tr(S_tilde)/K`, which is scale free and
+  makes the `standardize` branches agree. Broken-stick, the stricter comparator,
+  first read as *less* strict because it was counted instead of applied
+  sequentially.
+
 ## 1.4.0 - 2026-07-28
 
 The first test against real Google Trends data. Every number the project had

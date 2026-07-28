@@ -204,6 +204,21 @@ min_x (x-z)'Q(x-z) + (Ax-b)'W(Ax-b),
 
 其中 `z` 是 preliminary daily consensus，`A` 是週／月聚合矩陣，`b` 是 lower-frequency benchmark。`Q` 同時控制對原數列的忠實度與修正路徑的平滑度。
 
+### 誤差校正因素分析（1.5.0 新增）
+
+構念很少只是一個關鍵字。頂刊做法是各關鍵字建一條指標再取第一主成分，但 **PCA 假設輸入沒有量測誤差，而 GT 有**——含噪輸入會讓 loading 系統性衰減。給定 K 條共識數列與其每日標準誤：
+
+```text
+E[S] = Lambda Lambda' + Psi + Omega_bar,
+S_tilde = S - Omega_bar,
+```
+
+對 `S_tilde` 做特徵分解。若 `S_tilde` 失去半正定性，**不會靜默投影回正定錐**——那代表量測誤差佔了共變異的大部分，該組關鍵字撐不起一個因素，是關於資料的結論而非數值問題。
+
+兩個診斷不可省略：`pc1_weekday_f_statistic` 與 `pc1_autocorr_lag7`。PCA 是非監督的，第一主成分抓的是最主要的共同變異，而 GT 序列共享巨大的星期與假期效應——**PC1 很可能是「週一效應加聖誕節」而不是你要的構念**。
+
+模組不代為挑選關鍵字（那是 data snooping 的主要暴露面），並記錄輸入清單的 SHA-256 供預先註冊查核。
+
 ## 統計保證的範圍
 
 RACER-GT 不宣稱能從 proprietary GT 系統無條件證明「真實搜尋量」無偏。可證明的結果是：

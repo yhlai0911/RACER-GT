@@ -83,6 +83,7 @@ footer{border-top:1px solid var(--rule);margin-top:3.5rem;padding:1.75rem 0 3rem
 <tr><td>Delete duplicates</td><td>Retain them in the audit archive, collapse exact ones analytically, expose near-duplicate clusters</td></tr>
 <tr><td>One reliability number</td><td>Separate <strong>detection</strong>, <strong>level</strong>, and <strong>daily-innovation</strong> reliability, because they routinely disagree</td></tr>
 <tr><td>Stop at construction</td><td>Propagate measurement uncertainty into reliability-corrected OLS and SIMEX</td></tr>
+<tr><td>Take the first principal component of a keyword set</td><td>Subtract the known error covariance <strong>before</strong> the eigendecomposition, so loadings are not attenuated by retrieval noise &mdash; and report whether PC1 is tracking the day of week rather than the construct</td></tr>
 </tbody>
 </table>
 
