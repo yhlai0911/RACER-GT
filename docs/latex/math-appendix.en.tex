@@ -564,6 +564,64 @@ instead of it: agreement between the two is evidence that the classical error
 structure is adequate, and disagreement is evidence that it is not.
 
 % =============================================================================
+\subsection{Error-corrected factor analysis}\label{app:factor}
+
+With $K$ series observed as $\yvec_t=\Lam \fvec_t+\evec_t+\uvec_t$, where $\fvec_t$
+are the latent factors, $\evec_t$ the series-specific components with
+$\Var=\Psimat$ diagonal, and $\uvec_t$ measurement error with $\Var(\uvec_t)=\Om_t$
+supplied, the estimator subtracts the mean error covariance before the
+eigendecomposition: $\tilde{S}=S-\bar{\Om}$.
+
+\begin{proposition}[Error-corrected covariance and attenuation]\label{prop:factor}
+\begin{enumerate}
+\item If $\uvec_t$ is uncorrelated with $\fvec_t$ and $\evec_t$, then
+$\E[\tilde{S}]=\Lam\Lam^\top+\Psimat$: the corrected covariance is unbiased for the
+covariance the series would have without measurement error.
+\item Take one factor with homogeneous loadings and errors, and standardize so
+that $a+\psi+\omega=1$ with $a=\lambda^2$ the communality and $\omega$ the
+measurement-error share. Comparing loadings on the correlation scale, the ratio of
+the uncorrected to the corrected loading is
+\begin{equation}
+\frac{\lambda^{\mathrm{raw}}/\sqrt{S_{kk}}}{\tilde{\lambda}/\sqrt{\tilde{S}_{kk}}}
+=\sqrt{\frac{B(1-\omega)}{B-\omega}},
+\qquad B=1+(K-1)a .
+\label{eq:attenuation}
+\end{equation}
+It equals one exactly at $\omega=0$ and, since $B>1$, is strictly below one for
+$\omega>0$ and decreasing in $\omega$.
+\item If the model holds and $\bar{\Om}$ does not exceed the true mean measurement
+covariance, then $\tilde{S}\succeq0$.
+\end{enumerate}
+\end{proposition}
+
+\begin{proof}
+(i) $\E[S]=\Lam\Lam^\top+\Psimat+\bar{\Om}$ under the stated orthogonality, and
+$\bar{\Om}$ is subtracted. (ii) Under homogeneity $S=\Lam\Lam^\top+\tau I$ with
+$\tau=\psi+\omega$ and $\tilde{S}=\Lam\Lam^\top+\psi I$, so both matrices share
+the leading eigenvector $\Lam/\|\Lam\|$ and differ only in the leading eigenvalue,
+$\|\Lam\|^2+\tau$ against $\|\Lam\|^2+\psi$. Substituting into
+$\lambda_k=v_k\sqrt{\mu_1}$, dividing each by the standard deviation implied by
+its own matrix, and using $a+\tau=1$ after standardization gives
+\eqref{eq:attenuation}. (iii) By (i) the expectation is $\Lam\Lam^\top+\Psimat$,
+which is positive semidefinite because $\Psimat$ has non-negative diagonal.
+\end{proof}
+
+\begin{remark}[What an indefinite corrected covariance actually says]
+Part (iii) fixes the interpretation. Losing positive semidefiniteness is not by
+itself evidence that the series set cannot support a factor; under a correct model
+with a correct $\bar{\Om}$ it cannot happen. It is evidence that $\bar{\Om}$ is too
+large relative to the observed covariance --- an overstated measurement error, a
+misspecified model, or finite-sample variation in $S$. The estimator therefore
+raises rather than repairs it, and the diagnostics report the minimum eigenvalue
+so the magnitude of the violation is visible.
+\end{remark}
+
+\begin{remark}[Numerical check]
+\eqref{eq:attenuation} was predicted before simulation and matches to within
+$0.01\%$ across communalities $0.3$ to $0.6$, error shares $0$ to $0.3$, and $K$
+from $4$ to $12$; at $\omega=0$ it returns $1.00000$.
+\end{remark}
+
 \section{Correspondence between mathematics and code}
 
 \begin{table}[H]
