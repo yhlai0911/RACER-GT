@@ -318,6 +318,28 @@ M_t=\operatorname{med}_j\bigl|y_{tj}-\hat{X}_t\bigr|,
 方向值得與 $N_{\text{spec}}$ 對照強調：後者的偏誤是保守的——低估資訊量因而傾向拒絕該批資料。這三者的方向相反。它們讓數列看起來比設計所能支撐的更精確，而那正是會讓任何由它得出的結論更好看的方向。
 \end{remark}
 
+\begin{proposition}[區域倍率估計的是什麼]\label{prop:localscale-zh}
+設殘差共變異數只在**尺度**上隨時間變動而形狀不變，即 $\Sig_t=c_t^2\Sig$（$c_t>0$）。則
+\begin{enumerate}
+\item $\sqrt{\wvec^{\top}\Sig_t\wvec}=c_t\sqrt{\wvec^{\top}\Sig\wvec}=c_t\,\text{base\_se}$，故「單一全域標準誤乘上逐日尺度」正是正確的形式；
+\item $M_t/\bar{M}$ 對 $c_t$ 一致，因為把中位絕對離差換算為標準差的一致性常數在分子與分母同時出現而相消。
+\end{enumerate}
+\end{proposition}
+
+\begin{proof}
+(i) 由雙線性性直接可得。(ii) 在形狀不變的假設下，$M_t$ 對每個 $t$ 皆估計 $\kappa c_t\sigma$（同一個 $\kappa$），而 $\bar{M}$ 估計 $\kappa\sigma$。
+\end{proof}
+
+\begin{remark}[有限樣本行為，以及截斷的用途]
+\cref{prop:localscale-zh} 是對 pull 數的漸近結果，而 $M_t$ 只由 $m$ 個 pull 算出。以 $c_t\equiv1$ 模擬（此時倍率偏離 1 的部分全是估計噪音），倍率的標準差在 $m=3$ 時為 $0.61$、$m=9$ 時 $0.38$、$m=30$ 時 $0.21$。截斷邊界 $[0.25,4]$ 在 $m=3$ 時綁住 $4.75\%$ 的日期、$m=9$ 時 $0.40\%$、$m=30$ 時完全不綁。**邊界本身沒有統計推導**，它是數值防護；在本框架建議的設計規模下其代價很小。
+\end{remark}
+
+\begin{remark}[檢定力，以及它在哪裡消失]\label{rem:localpower-zh}
+該倍率確實偵測得到真實的變動。當五分之一的日期真實 $c_t=3$ 時，用倍率區分這些日期的 ROC 曲線下面積在 $m=3$ 為 $0.88$、$m=9$ 為 $0.98$、$m=30$ 為 $1.00$。
+
+但那是在命題的假設下——所有 pull 一起變吵。若某日只有**部分** pull 變吵（$\Sig_t$ 的**形狀**改變而非尺度），中位數會吸收掉它，檢定力隨受影響 pull 的比例**單調下降**：$m=9$ 時，全部受影響為 $0.98$、半數為 $0.78$、五分之一為 $0.63$。**使 $M_t$ 抗離群值的那個穩健性，正是使它在此失明的原因**，且方向不利——未被偵測到的上升會讓 $\mathrm{se}_t$ 偏小。
+\end{remark}
+
 \begin{remark}[對誤差修正估計量的後果]
 \cref{app:moment-zh} 的動差修正與誤差校正因素模型，都把 $\mathrm{se}_t^2$ 當作已知的 $\Omega$。一個一致偏小的 $\Omega$ 會造成\emph{校正不足}，而所有輸出診斷仍彼此自洽，因此結果讀起來仍像已校正。要偵測這個狀態需要真實的 $\Omega$，而那恰好是取不到的東西。在 \eqref{eq:dailyse-zh} 被真正的逐日變異數取代之前，凡依賴 $\Omega$ \emph{大小}（而非其存在）的結果，都應理解為以一個下界為條件。
 \end{remark}
