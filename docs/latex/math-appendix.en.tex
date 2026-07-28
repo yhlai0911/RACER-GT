@@ -293,6 +293,69 @@ well-conditioned target, and $\alpha\in[0,1]$ chosen to minimize expected
 squared Frobenius loss. It is used because $N$ is typically small relative to
 the number of dates and $S^{-1}$ is correspondingly unstable.
 
+\subsection{What multiple chunks buy against rounding}\label{app:rounding}
+
+Trends returns integers, and each chunk divides by its own window maximum before
+rounding. The two facts together determine how much a date being covered by
+several chunks reduces its measurement error, and the answer is not the number of
+chunks.
+
+Write $v_{tc}=\operatorname{round}(\theta_{tc})$ with $\theta_{tc}=100\,q_t/M_c$,
+where $q_t$ is the served relative volume on date $t$ and $M_c$ the maximum over
+chunk $c$'s window. Let $\delta_{tc}=v_{tc}-\theta_{tc}$ and let $s_c$ be the
+estimated scale, so the calibrated value is
+$\hat{y}_{tc}=s_c v_{tc}=X_t+s_c\delta_{tc}$.
+
+\begin{proposition}[Rounding error across overlapping chunks]\label{prop:rounding}
+Let $\alpha_c=100/M_c$, so $\delta_{tc}=\gamma(\alpha_c q_t \bmod 1)$ where
+$\gamma(u)=-u$ for $u<\tfrac12$ and $1-u$ otherwise. Then
+\begin{enumerate}
+\item if $q_t$ is continuously distributed, $\delta_{tc}$ is asymptotically uniform
+on $[-\tfrac12,\tfrac12)$ and $\Var(\delta_{tc})=\tfrac1{12}$;
+\item if $M_c=M_{c'}$ then $\delta_{tc}=\delta_{tc'}$ \emph{identically}, so the
+pair carries no information beyond one member;
+\item if $\alpha_c/\alpha_{c'}$ is irrational, then by Weyl's criterion
+$(\alpha_c q\bmod 1,\ \alpha_{c'}q\bmod 1)$ is asymptotically uniform on
+$[0,1)^2$, hence $\Cov(\delta_{tc},\delta_{tc'})\to 0$;
+\item for equal weights and equal scales, if the covering chunks fall into $g_t$
+groups of distinct $M_c$ with the distinct maxima in general position,
+\begin{equation}
+\Var(\hat{X}_t)\;\approx\;\frac{\bar{s}^2}{12\,g_t}.
+\label{eq:roundingvar}
+\end{equation}
+\end{enumerate}
+\end{proposition}
+
+\begin{proof}
+(i) is the standard equidistribution result for $\alpha q\bmod 1$. (ii) is
+immediate: $M_c=M_{c'}$ gives $\theta_{tc}=\theta_{tc'}$ and $\gamma$ is a
+function. (iii) is Weyl's criterion applied to the pair. (iv) follows from
+$\hat{X}_t-X_t=\sum_c w_{tc}s_c\delta_{tc}$: chunks sharing a maximum contribute a
+single common term by (ii), and distinct maxima contribute asymptotically
+uncorrelated terms by (iii), leaving $g_t$ effective summands.
+\end{proof}
+
+\begin{remark}[Why this does not contradict same-day cache]
+Repeated retrieval within one day was found to return rescalings of a single
+served sample, so it buys no sampling information. \Cref{prop:rounding} concerns a
+different error: even with $q_t$ held fixed, distinct normalizers map the same
+real number onto different integer grids, so their rounding errors differ. Chunk
+overlap and repeated acquisition reduce different components, and neither
+substitutes for the other.
+\end{remark}
+
+\begin{remark}[The general-position caveat is not cosmetic]\label{rem:generalposition}
+Part (iv) requires distinct maxima in general position, and simulation shows the
+qualification is doing work. At a maximum ratio of $3$ the rounding errors
+correlate $+0.33$; at $5/3$ and $7/3$ they correlate about $+0.06$; at $1.001$,
+$+0.71$. Other rational ratios correlate negatively, $-0.25$ at $2$ and $-0.08$ at
+$3/2$, which helps rather than hurts. So $g_t$ is a \emph{proxy} for the effective
+number of independent roundings, exact only under (iii), and neither an upper nor
+a lower bound in general. The dominant practical failure remains $M_c=M_{c'}$,
+which the reported \texttt{n\_scale\_groups} already counts: on the real series
+eight chunks formed four groups.
+\end{remark}
+
 \subsection{What the residual covariance can resolve}\label{app:resolution}
 
 $\hat{\Sig}$ is estimated from residuals taken about the daily central tendency of

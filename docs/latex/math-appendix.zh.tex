@@ -208,6 +208,38 @@ $\bar{w}\ge 1/N$ 時等權向量 $w_i=1/N$ 可行，故非空；可行集是超�
 
 Ledoit--Wolf 估計式為 $\hat{\Sig}=(1-\alpha)S+\alpha F$，其中 $S$ 為樣本共變異數、$F$ 為良置條件的目標、$\alpha\in[0,1]$ 使期望 Frobenius 平方損失最小。採用它是因為 $N$ 相對於日期數通常偏小，$S^{-1}$ 相應不穩定。
 
+\subsection{多個 chunk 對捨入誤差究竟買到什麼}\label{app:rounding-zh}
+
+Trends 回傳整數，且每個 chunk 先除以自己視窗內的最大值再取整。這兩件事共同決定了「某日被多個 chunk 覆蓋」能降低多少量測誤差，而答案**不是 chunk 的個數**。
+
+令 $v_{tc}=\operatorname{round}(\theta_{tc})$，$\theta_{tc}=100\,q_t/M_c$，其中 $q_t$ 為第 $t$ 日被服務的相對量、$M_c$ 為 chunk $c$ 視窗內的最大值。令 $\delta_{tc}=v_{tc}-\theta_{tc}$、$s_c$ 為估計尺度，則校準值為 $\hat{y}_{tc}=s_c v_{tc}=X_t+s_c\delta_{tc}$。
+
+\begin{proposition}[重疊 chunk 之間的捨入誤差]\label{prop:rounding-zh}
+令 $\alpha_c=100/M_c$，則 $\delta_{tc}=\gamma(\alpha_c q_t \bmod 1)$，其中 $u<\tfrac12$ 時 $\gamma(u)=-u$、否則 $\gamma(u)=1-u$。則
+\begin{enumerate}
+\item 若 $q_t$ 為連續分布，$\delta_{tc}$ 漸近均勻於 $[-\tfrac12,\tfrac12)$ 且 $\Var(\delta_{tc})=\tfrac1{12}$；
+\item 若 $M_c=M_{c'}$，則 $\delta_{tc}=\delta_{tc'}$ **恆等**，該對除其一之外不帶任何資訊；
+\item 若 $\alpha_c/\alpha_{c'}$ 為無理數，由 Weyl 準則，$(\alpha_c q\bmod 1,\ \alpha_{c'}q\bmod 1)$ 漸近均勻於 $[0,1)^2$，故 $\Cov(\delta_{tc},\delta_{tc'})\to 0$；
+\item 在等權且尺度相近、覆蓋該日的 chunk 構成 $g_t$ 個相異 $M_c$ 群且相異最大值處於一般位置時，
+\begin{equation}
+\Var(\hat{X}_t)\;\approx\;\frac{\bar{s}^2}{12\,g_t}.
+\label{eq:roundingvar-zh}
+\end{equation}
+\end{enumerate}
+\end{proposition}
+
+\begin{proof}
+(i) 為 $\alpha q\bmod 1$ 的標準等分布結果。(ii) 直接可得：$M_c=M_{c'}$ 給出 $\theta_{tc}=\theta_{tc'}$，而 $\gamma$ 是函數。(iii) 為 Weyl 準則用於該對。(iv) 由 $\hat{X}_t-X_t=\sum_c w_{tc}s_c\delta_{tc}$ 得：由 (ii)，共用最大值的 chunk 只貢獻同一項；由 (iii)，相異最大值貢獻漸近不相關的項，故實際上只有 $g_t$ 個有效加總項。
+\end{proof}
+
+\begin{remark}[這與同日 cache 並不矛盾]
+同日重複取得已被實測為同一份被服務樣本的重新縮放，故買不到抽樣資訊。\cref{prop:rounding-zh} 講的是**另一種誤差**：即使 $q_t$ 固定不變，不同的正規化常數會把**同一個實數**映到**不同的整數格點**，其捨入誤差因而相異。**chunk 重疊與重複取得降低的是不同的成分，兩者不可互相取代。**
+\end{remark}
+
+\begin{remark}[「一般位置」這個限定條件不是裝飾]\label{rem:generalposition-zh}
+(iv) 要求相異最大值處於一般位置，而模擬顯示這個限定條件確實在做事。最大值比為 $3$ 時捨入誤差相關 $+0.33$；比為 $5/3$ 與 $7/3$ 時約 $+0.06$；比為 $1.001$ 時 $+0.71$。其他有理比則為負相關（比為 $2$ 時 $-0.25$、$3/2$ 時 $-0.08$），那是有利而非有害。因此 $g_t$ 是有效獨立捨入次數的**代理量**，僅在 (iii) 下精確，一般情形下既非上界亦非下界。實務上主要的失效模式仍是 $M_c=M_{c'}$，而該情形已由既有的 \texttt{n\_scale\_groups} 計數——真實資料上 8 個 chunk 只構成 4 群。
+\end{remark}
+
 \subsection{殘差共變異數的分辨力上界}\label{app:resolution-zh}
 
 $\hat{\Sig}$ 由殘差估計，而殘差是各 pull 減去**由 pull 自身構成**的當日中心趨勢。被減數因而與被減的對象相關，這在看到任何資料之前就限制了估出的變異數彼此能相差多少。
