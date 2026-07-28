@@ -90,11 +90,19 @@ the simulator cannot represent at all.
   worse than any sequential stitch. The margin depends only on which windows
   overlap, so it can be computed before collecting anything: 9.1x variance
   reduction on this one-year design, 140x at fifteen years with a 15-day step.
-- **F1 is material at the protocol this project recommends.** Terminal scale
-  error at the measured dispersion is 0.40% for sequential stitching on one year,
-  but 2.79% against 0.23% at fifteen years with a 15-day step. The three earlier
-  null results are what the theorem predicts on short chains, not evidence
-  against the mechanism.
+- **F1 is predicted to be material at the protocol this project recommends, and
+  that prediction is not a measurement.** Terminal scale error is 0.40% for
+  sequential stitching on the one year actually collected; extrapolating the same
+  model to fifteen years with a 15-day step gives 2.79% against 0.23%. The
+  extrapolation reaches fifteen-fold from one keyword and one pull, and two of its
+  assumptions are contradicted by that same year, both in the direction that
+  flatters the conclusion: the idealized edge model overstates the variance
+  reduction by about 15% (9.13x measured against 10.5x modelled, because
+  degenerate edges take the variance floor and Huber leaves n_eff below n), and
+  the dispersion is not constant -- it ranges over a factor of 1.75 within one
+  year and correlates -0.760 (p = 0.0001) with the value level, so long-horizon
+  absolute errors are understated. The three earlier null results remain what the
+  theorem predicts on short chains, not evidence against the mechanism.
 - On real data the two methods are indistinguishable: correlation 1.000000 and a
   largest absolute difference of 0.195 points on the 0--100 index scale.
 

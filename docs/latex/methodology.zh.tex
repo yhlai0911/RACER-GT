@@ -378,19 +378,34 @@ R_{\mathrm{eff}}^{\text{graph}}(j,r)\;\le\;R_{\mathrm{eff}}^{\text{path}}(j,r)
 \begin{table}[H]
 \centering
 \small
-\caption{以\cref{eq:reff} 事前計算的校準誤差。$R_{\mathrm{eff}}$ 以 $\sigma^2$ 為單位。}
+\caption{chunk 設計經\cref{eq:reff} 所隱含的校準誤差，採 $\Var(\hat\delta_e)=\sigma^2/n_e$，$\sigma$ 取自一年、單一關鍵字的中位離散度。\textbf{只有第一列可與資料對照，其餘為外推}——見\cref{rem:extrapolation}。}
 \label{tab:designreff}
 \begin{tabular}{lrrrr}
 \toprule
 設計（歷史跨度、視窗／步進） & chunks & 降幅 & 逐段 & 全域圖\\
 \midrule
-1 年，180／30（本文實測） & 8 & $10.5\times$ & $0.40\%$ & $0.12\%$\\
+\multicolumn{5}{l}{\emph{實測，由估計出的 edge 變異數}}\\
+1 年，180／30 & 8 & $\mathbf{9.13\times}$ & --- & ---\\
+\midrule
+\multicolumn{5}{l}{\emph{外推，由理想化 edge 模型}}\\
+1 年，180／30 & 8 & $10.5\times$ & $0.40\%$ & $0.12\%$\\
 5 年，180／30 & 56 & $18.2\times$ & $1.15\%$ & $0.27\%$\\
 15 年，180／30 & 178 & $20.1\times$ & $2.06\%$ & $0.46\%$\\
-15 年，180／15（\cref{tab:recommended} 建議） & 355 & $140.5\times$ & $\mathbf{2.79\%}$ & $\mathbf{0.23\%}$\\
+15 年，180／15（\cref{tab:recommended} 建議） & 355 & $140.5\times$ & $2.79\%$ & $0.23\%$\\
 \bottomrule
 \end{tabular}
 \end{table}
+
+\begin{remark}[本表哪些是實測、哪些不是]
+\label{rem:extrapolation}
+恆等式\cref{eq:reff} 與序關係\cref{eq:rayleigh} 是定理，不需要資料。但表中的\emph{數字}是另一回事：其兩項假設被用來校準它的同一年資料所否證，且兩者都朝著對本文結論有利的方向偏，因此明列而非留給讀者自行發現。
+
+\textbf{理想化 edge 模型高估降幅約 15\%。}在唯一可雙向計算的設計上，由估計出的 edge 變異數得 $9.13\times$，理想化模型得 $10.5\times$：26 條重疊中有 5 條退化、取的是 variance floor 而非 $\sigma^2/n_e$，且 Huber 權重使 $n_{\mathrm{eff}}<n_e$。外推各列沒有這道檢查。
+
+\textbf{$\sigma$ 不是常數。}21 條有效重疊的 $\sigma$ 在\emph{單一年度之內}即相差 $1.75$ 倍，且與該對的數值水準相關 $-0.760$（$p=0.0001$），正是捨入下限 $1/(\sqrt{12}\,v)$ 所預測者。15 年序列涵蓋的搜尋量變化遠大於一年，低搜尋量時期的 $\sigma$ 更大，故後三列的絕對百分比為\emph{低估}。\emph{比值}較穩健，因 $\sigma$ 在 path 與 graph 之間大致約掉，但一旦 $\sigma$ 跨 edge 變動便不會完全約掉。
+
+射程也應直說：一年、一個關鍵字、一個 pull，外推十五倍。\textbf{「F1 在長期設計下具實質意義」是\cref{prop:reff} 的預測，不是量測結果。}要檢驗它需要長跨度的實際收集，\cref{tab:recommended} 已規定其規格，本文尚未執行。
+\end{remark}
 
 1.4.0 起，\texttt{CalibrationResult.diagnostics} 直接輸出 \texttt{max\_\allowbreak log\_\allowbreak scale\_\allowbreak variance}、\texttt{sequential\_\allowbreak max\_\allowbreak log\_\allowbreak scale\_\allowbreak variance} 與兩者之比 \texttt{calibration\_\allowbreak variance\_\allowbreak reduction}。
 \end{remark}
@@ -544,11 +559,11 @@ $0.030$（\textbf{模擬器預設}） & 0.046424 & 2.47\\
 
 但換算成絕對尺度，本設計下逐段 stitching 的終端誤差僅 $0.40\%$、全域圖 $0.12\%$。**比值大、絕對值小**，兩者並不矛盾——這正是一年設計看不到差異的原因，也是先前三次模擬實驗得到 null 的原因。
 
-\begin{remark}[F1 在本文自己建議的 protocol 下是實質的]
+\begin{remark}[F1 在本文建議的 protocol 下\emph{被預測}為實質]
 \label{rem:f1scale}
-\cref{tab:designreff} 顯示，尺度誤差隨歷史跨度成長：15 年、180 日視窗、15 日步進——即\cref{tab:recommended} 所建議的規格——逐段 stitching 的終端尺度誤差為 $\mathbf{2.79\%}$，全域圖為 $\mathbf{0.23\%}$。對一條橫跨 15 年的注意力指數而言，$2.79\%$ 的端點尺度偏誤是一個緩慢漂移，形態上與趨勢難以區分，正是 GT 文獻反覆警告的 artificial low-frequency drift。
+\cref{tab:designreff} 將誤差沿歷史跨度外推：15 年、180 日視窗、15 日步進——即\cref{tab:recommended} 所建議的規格——逐段 stitching 的終端尺度誤差約為 $2.79\%$，全域圖約為 $0.23\%$。對一條橫跨 15 年的注意力指數而言，此量級的端點尺度偏誤是一個緩慢漂移，形態上與趨勢難以區分，正是 GT 文獻反覆警告的 artificial low-frequency drift。\cref{rem:extrapolation} 說明這兩個數字所依賴的前提；它們是\cref{prop:reff} 的\textbf{預測}，不是量測結果。
 
-因此本文對 F1 的正確陳述是：\textbf{機制為真、可被證明（\cref{prop:reff}）、且在建議規模下具實質意義}；本文一年份的實測之所以看不到它，是因為該設計的絕對誤差上限只有 $0.40\%$。\cref{sec:calexp} 與\cref{sec:montecarlo} 的 null results 並非 F1 的反證，而是\cref{prop:reff} 的直接預測：在短鏈上有效電阻差距的絕對值必然微小。
+因此本文對 F1 的正確陳述是：\textbf{機制為真、可被證明（\cref{prop:reff}）、且\emph{被預測}在建議規模下具實質意義}；本文一年份的實測之所以看不到它，是因為該設計的絕對誤差上限只有 $0.40\%$。\cref{sec:calexp} 與\cref{sec:montecarlo} 的 null results 並非 F1 的反證，而是\cref{prop:reff} 的直接預測：在短鏈上有效電阻差距的絕對值必然微小。
 
 這也修正了 \cref{rem:pattern} 的解讀。先前三次的共同結論是「機制成立但效果二階」；\cref{prop:reff} 說明其中至少校準這一項並非二階，而是\emph{規模相依}——效果隨接合數成長，而先前所有實驗都在效果最小的一端進行。全域圖校準值得採用的理由，除了\cref{tab:realdata} 中逐段 stitching 結構上無法提供的診斷之外，還有\cref{eq:rayleigh} 給出的無條件保證：它永不更差。
 \end{remark}

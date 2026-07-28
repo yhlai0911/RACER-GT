@@ -617,20 +617,55 @@ real data:
 \begin{table}[H]
 \centering
 \small
-\caption{Calibration error computed in advance from \eqref{eq:reff}.
-$R_{\mathrm{eff}}$ is in units of $\sigma^2$.}
+\caption{Calibration error implied by a chunk design through \eqref{eq:reff},
+under $\Var(\hat\delta_e)=\sigma^2/n_e$ at the median dispersion measured on one
+year of one keyword. \textbf{Only the first row can be checked against data; the
+rest are extrapolations} --- see \cref{rem:extrapolation}.}
 \label{tab:designreff}
 \begin{tabular}{lrrrr}
 \toprule
 Design (span, window/step) & Chunks & Reduction & Sequential & Graph\\
 \midrule
-1 year, 180/30 (measured here) & 8 & $10.5\times$ & $0.40\%$ & $0.12\%$\\
+\multicolumn{5}{l}{\emph{Measured, from the estimated edge variances}}\\
+1 year, 180/30 & 8 & $\mathbf{9.13\times}$ & --- & ---\\
+\midrule
+\multicolumn{5}{l}{\emph{Extrapolated, from the idealized edge model}}\\
+1 year, 180/30 & 8 & $10.5\times$ & $0.40\%$ & $0.12\%$\\
 5 years, 180/30 & 56 & $18.2\times$ & $1.15\%$ & $0.27\%$\\
 15 years, 180/30 & 178 & $20.1\times$ & $2.06\%$ & $0.46\%$\\
-15 years, 180/15 (recommended) & 355 & $140.5\times$ & $\mathbf{2.79\%}$ & $\mathbf{0.23\%}$\\
+15 years, 180/15 (recommended) & 355 & $140.5\times$ & $2.79\%$ & $0.23\%$\\
 \bottomrule
 \end{tabular}
 \end{table}
+
+\begin{remark}[What in this table is measured and what is not]\label{rem:extrapolation}
+The identity \eqref{eq:reff} and the ordering \eqref{eq:rayleigh} are theorems and
+need no data. The \emph{numbers} in the table are a different matter, and two of
+their assumptions are contradicted by the same year of data they are calibrated
+on. Both contradictions run in the direction that flatters the conclusion, so
+they are stated rather than left for a reader to find.
+
+\textbf{The idealized edge model overstates the reduction by about 15\%.} On the
+one design where both can be computed, the estimated edge variances give
+$9.13\times$ against the model's $10.5\times$: five of the 26 overlaps are
+degenerate and take the variance floor rather than $\sigma^2/n_e$, and the Huber
+weights leave $n_{\mathrm{eff}}<n_e$. The extrapolated rows have no such check.
+
+\textbf{$\sigma$ is not a constant.} Across the 21 informative overlaps it ranges
+over a factor of $1.75$ \emph{within a single year} and correlates $-0.760$
+($p=0.0001$) with the value level of the pair, which is what the rounding floor
+$1/(\sqrt{12}\,v)$ predicts. A fifteen-year series spans far wider variation in
+search volume than one year of it does, so the low-volume eras carry a larger
+$\sigma$ and the absolute percentages in the last three rows are understated. The
+\emph{ratio} is more robust, because $\sigma$ largely cancels between path and
+graph, but it does not cancel exactly once $\sigma$ varies across edges.
+
+The reach is also worth stating plainly: one year, one keyword, one pull,
+extrapolated fifteen-fold. \textbf{The claim that F1 is material at long horizons
+is a prediction of \cref{prop:reff}, not a measurement.} Testing it needs a
+long-horizon collection, which \cref{sec:design} specifies and this
+manuscript has not carried out.
+\end{remark}
 
 From version 1.4.0 \texttt{CalibrationResult.diagnostics} reports
 \texttt{max\_\allowbreak log\_\allowbreak scale\_\allowbreak variance},
@@ -897,19 +932,20 @@ stitching and $0.12\%$ for the graph. \textbf{A large ratio and a small
 magnitude} are not in tension, and together they explain both why one year sees
 nothing and why the three earlier simulation experiments returned nulls.
 
-\begin{remark}[F1 is material at the protocol this manuscript recommends]\label{rem:f1scale}
-\Cref{tab:designreff} shows the error growing with the historical span. At 15
+\begin{remark}[F1 is predicted to be material at the recommended protocol]\label{rem:f1scale}
+\Cref{tab:designreff} extrapolates the error out along the historical span. At 15
 years with 180-day windows and a 15-day step --- the specification recommended
-here --- sequential stitching carries a terminal scale error of $\mathbf{2.79\%}$
-against $\mathbf{0.23\%}$ for the graph. On an attention index spanning fifteen
-years, a $2.79\%$ level error at one end is a slow drift that is hard to separate
-from a trend: exactly the artificial low-frequency drift the Google Trends
-literature warns about.
+here --- sequential stitching would carry a terminal scale error near $2.79\%$
+against $0.23\%$ for the graph. On an attention index spanning fifteen years, a
+level error of that size at one end is a slow drift hard to separate from a
+trend: exactly the artificial low-frequency drift the Google Trends literature
+warns about. \Cref{rem:extrapolation} states what those two numbers rest on; they
+are a prediction of \cref{prop:reff} and have not been measured.
 
-The correct statement about F1 is therefore that the mechanism is real, provable
-(\cref{prop:reff}), and material at the recommended scale, and that the one year
-measured here cannot see it because the design's absolute error ceiling is
-$0.40\%$. The nulls in \cref{sec:calexp} and \cref{sec:monte-carlo} are not
+The correct statement about F1 is therefore that the mechanism is real and
+provable (\cref{prop:reff}), that it is \emph{predicted} to be material at the
+recommended scale, and that the one year measured here cannot see it because the
+design's absolute error ceiling is $0.40\%$. The nulls in \cref{sec:calexp} and \cref{sec:monte-carlo} are not
 evidence against F1; they are what \cref{prop:reff} predicts, since on short
 chains the absolute difference between effective resistances must be small.
 
