@@ -297,6 +297,7 @@ def fit_gls_consensus(
     metadata: pd.DataFrame | None = None,
     baseline_start: pd.Timestamp | str | None = None,
     baseline_end: pd.Timestamp | str | None = None,
+    calibration_se: pd.DataFrame | None = None,
 ) -> ConsensusResult:
     """Estimate a covariance-adjusted latent consensus across complete GT pulls.
 
@@ -310,11 +311,29 @@ def fit_gls_consensus(
     baseline_rescale on it subtracts one common constant from every pull rather than a
     pull-specific offset, which shifts the consensus level and violates E(e_t)=0. The
     diagnostics report pull_bias_cross_pull_sd so that degeneracy stays visible.
+
+    calibration_se is the per-day, per-pull standard error the calibration stage
+    already produces, wide in the same shape as matrix. It is reported alongside the
+    consensus standard error rather than added to it: Sigma is estimated from
+    residuals that already contain calibration error, so summing would double count.
+    What it provides instead is an independent lower bound. It comes from a different
+    derivation entirely -- the delta method applied to within-day chunk disagreement --
+    so days where it exceeds the consensus standard error are days the residual-based
+    estimate is too small. That share is reported.
     """
 
     if matrix.shape[1] < 2:
         raise ValueError("At least two pulls are required")
     original = matrix.sort_index().astype(float).copy()
+    # The calibration standard errors travel through exactly the transformations the
+    # values do. Collapsing selects columns and baseline rescaling multiplies by a
+    # per-pull constant, so an error left untransformed would be compared against
+    # values on a different scale.
+    calib = (
+        calibration_se.reindex(index=original.index, columns=original.columns).astype(float)
+        if calibration_se is not None
+        else None
+    )
     if config.collapse_exact_duplicates:
         work, duplicate_map = collapse_exact_vectors(original)
     else:
@@ -328,6 +347,8 @@ def fit_gls_consensus(
                 "collapsed": False,
             }
         )
+    if calib is not None:
+        calib = calib[work.columns]
 
     # Put all pulls on the same identified index scale. This is not an estimate of
     # absolute search counts; it defines a common baseline-mean-100 estimand.
@@ -339,6 +360,8 @@ def fit_gls_consensus(
         if (means <= 0).any() or means.isna().any():
             raise ValueError("Every pull must have a positive finite baseline mean")
         work = work.divide(means, axis=1) * 100.0
+        if calib is not None:
+            calib = calib.divide(means, axis=1) * 100.0
 
     preliminary = work.median(axis=1, skipna=True)
     candidate_bias = work.sub(preliminary, axis=0).mean(axis=0, skipna=True)
@@ -404,6 +427,30 @@ def fit_gls_consensus(
         }
     )
 
+    # Propagate the calibration standard errors through the same weights that form the
+    # consensus, on each day's available set. Treating them as independent across pulls
+    # is an assumption, not a finding: pulls retrieved on one collection day were shown
+    # in 1.4.0 to be rescalings of one served sample, and if that extends across pulls
+    # this understates. The assumption is recorded in the diagnostics.
+    calibration_errors: np.ndarray | None = None
+    if calib is not None:
+        propagated = np.full(len(aligned), np.nan)
+        calib_values = calib.reindex(index=aligned.index, columns=aligned.columns)
+        for position, (_, row) in enumerate(calib_values.iterrows()):
+            available = np.isfinite(aligned.iloc[position].to_numpy(dtype=float))
+            errors = row.to_numpy(dtype=float)
+            usable = available & np.isfinite(errors)
+            if not usable.any():
+                continue
+            local_weights = weights[usable]
+            total = local_weights.sum()
+            if total <= 0:
+                continue
+            local_weights = local_weights / total
+            propagated[position] = float(np.sqrt(np.sum((local_weights * errors[usable]) ** 2)))
+        calibration_errors = propagated
+        consensus["calibration_standard_error"] = propagated
+
     multiplicity_map = (
         duplicate_map.groupby("representative_pull_id")["multiplicity"].max().to_dict()
     )
@@ -444,6 +491,28 @@ def fit_gls_consensus(
         "covariance_condition_number": float(np.linalg.cond(covariance)),
         "weight_sum": float(weights.sum()),
     }
+    if calibration_errors is not None:
+        finite = np.isfinite(calibration_errors) & np.isfinite(standard_errors)
+        # Sigma is estimated from residuals taken about the pulls' own daily median,
+        # which understates. The calibration error is derived independently, from
+        # within-day chunk disagreement via the delta method, so days where it exceeds
+        # the consensus standard error are days that understatement is visible. This is
+        # a lower-bound check, not a correction: the two are not added, because the
+        # residuals Sigma is built from already contain calibration error.
+        diagnostics.update(
+            {
+                "calibration_se_supplied": True,
+                "median_calibration_se": float(np.nanmedian(calibration_errors)),
+                "calibration_se_exceeds_consensus_se_share": (
+                    float(np.mean(calibration_errors[finite] > standard_errors[finite]))
+                    if finite.any()
+                    else float("nan")
+                ),
+                "calibration_se_independent_across_pulls_assumed": True,
+            }
+        )
+    else:
+        diagnostics["calibration_se_supplied"] = False
     covariance_df = pd.DataFrame(covariance, index=pull_ids, columns=pull_ids)
     return ConsensusResult(
         consensus=consensus,
