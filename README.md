@@ -35,6 +35,7 @@ the latent relative search signal on a common scale.
 | Delete duplicates | Retain them in the audit archive, collapse exact ones analytically, and expose near-duplicate clusters |
 | One reliability number | Separate **detection**, **level**, and **daily-innovation** reliability, because they routinely disagree |
 | Stop at construction | Propagate measurement uncertainty into reliability-corrected OLS and SIMEX |
+| Take the first principal component of a keyword set | Subtract the known error covariance **before** the eigendecomposition, so loadings are not attenuated by retrieval noise — and report whether PC1 is tracking the day of week rather than the construct |
 
 ## Install
 
