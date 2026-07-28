@@ -1249,6 +1249,68 @@ Downstream model & 主結果使用 final consensus；另以 sample-specific pull
 
 \section{限制、敏感度分析與可延伸方向}
 
+\subsection{本框架適用於哪一類量測}\label{sec:appliesto-zh}
+
+前述結果沒有一項是 Google Trends 專屬的。本框架要求的是該量測為**平台中介**（platform-mediated）：由一個分析者不控制、會改變、且不公開其作為細節的中介層所產生。四個判準決定一條序列是否屬於此類，而它們是**四個不同的問題**，不是同一個：
+
+\begin{enumerate}
+\item 該數值是**抽樣**的結果嗎——重複取得會不會不同？
+\item 有沒有**請求內或樣本內的正規化**，其基準會不會移動？
+\item 來源會不會**回溯改變**——同一個歷史日期在不同取得日是否有不同值？
+\item 建構方法改變時，歷史會不會被**重算**？
+\end{enumerate}
+
+\begin{table}[H]
+\centering
+\small
+\caption{本框架處理哪些序列。\textbf{僅第一列經過本文實測}；其餘各列依結構對應歸類，並非量測結果，且沒有任何一列可作為本框架的證據。}
+\label{tab:appliesto-zh}
+\begin{tabularx}{\textwidth}{Xcccc c}
+\toprule
+序列 & 抽樣 & 正規化 & 回溯改變 & 重算歷史 & 適用\\
+\midrule
+Google Trends（\textbf{已實測}） & 是 & 每請求 & 是 & 是 & 是\\
+Baidu Index、Naver DataLab & 是 & 每請求 & 是 & 是 & 是\\
+以新聞計數建構的政策不確定性指數 & 否 & 對基準 & 很可能 & 是 & 是\\
+相對基準期的移動性指數 & 否 & 對基準 & 是 & 是 & 部分\\
+供應商的情緒與人流面板 & 面板 & 不一 & 是 & 是 & 部分\\
+\midrule
+\multicolumn{6}{l}{\emph{不在本框架範圍內，且值得明講}}\\
+以市場變數合成的情緒指標 & 否 & 映至 $[0,100]$ & 否 & 是 & 否\\
+有公開公式的波動度指數 & 否 & 否 & 否 & 是 & 否\\
+\bottomrule
+\end{tabularx}
+\end{table}
+
+**被排除的那兩列比被納入的更重要。** 一個由可觀測市場變數（動能、廣度、選擇權比率、信用利差）合成的指標並非抽樣，也不會回溯改變；它若難以使用，困難之處在於**建構方式未公開**，那是可重現性問題，需要不同的工具。有公開公式的波動度指數，任何人都能由選擇權價格重算。把本框架宣稱到它們身上會被立即反駁，而排除它們正是讓納入判準具有內容的原因。
+
+以新聞計數建構的不確定性指數是**結構上最接近的類比**，且對應是逐項的：分母中的文章總數扮演視窗最大值的角色，語料庫收錄範圍的變動扮演 Google 改變抽樣的角色，標準化基準期扮演 baseline 的角色。但**其已發布的歷史值是否真的會隨語料庫更新而改變，本文並未確立**。該問題可用本文所描述的程序直接檢驗——在不同日期取得同一段歷史並比對——且該檢驗不需要任何受限介面的存取權。
+
+\subsection{與即時資料（real-time data）分析的關係}\label{sec:realtimedata-zh}
+
+「取得日期是資料的一部分」這個想法對經濟學並不新。即時資料文獻 \cite{croushore2001} 已確立：一條總體序列是一連串 vintage 而非單一物件；同一季在不同 vintage 有不同值；使用最終修訂值會為「當時可知什麼」的研究帶來 look-ahead bias。
+
+本框架是把該想法延伸到**其核心假設失效**的情形。
+
+\begin{table}[H]
+\centering
+\small
+\caption{為何 vintage 記錄對平台中介的序列並不充分。}
+\label{tab:vintage-zh}
+\begin{tabularx}{\textwidth}{lXX}
+\toprule
+ & 即時總體資料 & 平台中介的量測\\
+\midrule
+變動的性質 & 修訂：確定性更新 & 抽樣：隨機\\
+是否存在最終值 & 有；修訂會收斂 & 沒有\\
+正確做法 & 使用當時可得的 vintage & vintage 不足：**同一 vintage 內**兩次取得即有差異\\
+不確定性來源 & 可由修訂史估計 & 需要依預先固定的設計**重複取得**\\
+\bottomrule
+\end{tabularx}
+\end{table}
+
+記錄取得日期（即 vintage 的作用）在此是**必要而不充分**的。由於不存在序列所收斂到的值，不確定性無法從修訂史讀出，唯一的量化途徑是依預先固定的設計重複取得。這正是本文取得設計一節的全部內容，也是本文為何是一份**重複量測 protocol** 而非一項封存慣例的原因。
+
 \subsection{無法由統計設計消除的限制}
 
 第一，若 Google 對所有 pulls 施加相同且隨時間變動的系統性演算法偏誤，重複量測無法僅靠平均或 GLS 識別；這是 common-mode bias。可利用 API overlap period、外部搜尋資料、新聞／交易事件與不同 query formulations 進行 external validation，但仍不是絕對真值。
@@ -1499,6 +1561,11 @@ Quantifying trading behavior in financial markets using Google Trends.
 Searle, S. R., Casella, G., \& McCulloch, C. E. (1992).
 \textit{Variance Components}.
 Wiley.
+
+\bibitem{croushore2001}
+Croushore, D., \& Stark, T. (2001).
+A real-time data set for macroeconomists.
+\textit{Journal of Econometrics}, 105(1), 111--130.
 
 \bibitem{shavelson1991}
 Shavelson, R. J., \& Webb, N. M. (1991).
