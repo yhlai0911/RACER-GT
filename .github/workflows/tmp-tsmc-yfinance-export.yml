@@ -19,8 +19,8 @@ jobs:
         with:
           python-version: "3.12"
 
-      - name: Install yfinance
-        run: python -m pip install --upgrade yfinance pandas
+      - name: Install yfinance and repair dependency
+        run: python -m pip install --upgrade yfinance pandas scipy
 
       - name: Fetch 2330.TW strictly through yfinance
         run: |
@@ -38,7 +38,7 @@ jobs:
           obj = yf.Ticker(ticker)
           kwargs = dict(start=start, end=end, interval="1d", auto_adjust=False, actions=True)
           try:
-              hist = obj.history(repair=True, timeout=60, raise_errors=True, **kwargs)
+              hist = obj.history(repair=True, timeout=60, **kwargs)
           except TypeError:
               try:
                   hist = obj.history(repair=True, **kwargs)
@@ -75,6 +75,7 @@ jobs:
               "retrieved_at_utc": datetime.now(timezone.utc).isoformat(),
               "auto_adjust": False,
               "actions": True,
+              "repair": True,
           }
           (out / "yfinance_metadata.json").write_text(
               json.dumps(meta, ensure_ascii=False, indent=2), encoding="utf-8"
