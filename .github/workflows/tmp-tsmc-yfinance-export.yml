@@ -1,0 +1,90 @@
+name: Temporary TSMC yfinance export
+
+on:
+  push:
+    branches:
+      - tmp-tsmc-yfinance-20260806
+
+permissions:
+  contents: read
+
+jobs:
+  export:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install yfinance
+        run: python -m pip install --upgrade yfinance pandas
+
+      - name: Fetch 2330.TW strictly through yfinance
+        run: |
+          mkdir -p output
+          python - <<'PY'
+          from datetime import datetime, timezone
+          import json
+          from pathlib import Path
+          import pandas as pd
+          import yfinance as yf
+
+          ticker = "2330.TW"
+          start = "2006-08-06"
+          end = "2026-08-07"
+          obj = yf.Ticker(ticker)
+          kwargs = dict(start=start, end=end, interval="1d", auto_adjust=False, actions=True)
+          try:
+              hist = obj.history(repair=True, timeout=60, raise_errors=True, **kwargs)
+          except TypeError:
+              try:
+                  hist = obj.history(repair=True, **kwargs)
+              except TypeError:
+                  hist = obj.history(**kwargs)
+
+          if hist is None or hist.empty:
+              raise RuntimeError("yfinance returned no data")
+          if "Close" not in hist.columns:
+              raise RuntimeError(f"Close missing; columns={list(hist.columns)}")
+
+          hist = hist.copy()
+          idx = pd.to_datetime(hist.index)
+          if getattr(idx, "tz", None) is not None:
+              idx = idx.tz_localize(None)
+          hist.insert(0, "Date", idx.normalize())
+          hist = hist.reset_index(drop=True)
+          hist = hist.dropna(subset=["Close"]).drop_duplicates("Date", keep="last")
+          hist = hist.sort_values("Date").reset_index(drop=True)
+
+          out = Path("output")
+          csv_path = out / "tsmc_2330_yfinance_raw.csv"
+          hist.to_csv(csv_path, index=False, encoding="utf-8-sig", float_format="%.10f")
+          meta = {
+              "ticker": ticker,
+              "requested_start_inclusive": start,
+              "requested_end_exclusive": end,
+              "actual_first_date": hist["Date"].min().date().isoformat(),
+              "actual_last_date": hist["Date"].max().date().isoformat(),
+              "observations": int(len(hist)),
+              "columns": list(hist.columns),
+              "source": "yfinance only; no fallback",
+              "yfinance_version": getattr(yf, "__version__", "unknown"),
+              "retrieved_at_utc": datetime.now(timezone.utc).isoformat(),
+              "auto_adjust": False,
+              "actions": True,
+          }
+          (out / "yfinance_metadata.json").write_text(
+              json.dumps(meta, ensure_ascii=False, indent=2), encoding="utf-8"
+          )
+          print(json.dumps(meta, ensure_ascii=False, indent=2))
+          PY
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: tsmc-2330-yfinance-raw
+          path: output/
+          if-no-files-found: error
+          retention-days: 7
